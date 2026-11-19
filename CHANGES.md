@@ -1,7 +1,7 @@
 # Maitria Voice Service — Patch Notes
 
-All fixes apply to `core/`, `services/`, `lang_services/`, and their
-mirror copies in `edu/` and `edu_app/` unless noted otherwise.
+All fixes apply to `core/`, `services/`, and `lang_services/` at the repo
+root. Nested mirror copies under `edu/` / `edu_app/` were removed.
 
 ---
 

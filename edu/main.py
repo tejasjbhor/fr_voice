@@ -16,19 +16,14 @@ import asyncio
 import os
 import sys
 import time
-import types
 from datetime import datetime
 
-# This repo root is the `edu` package. Register it so `from edu import ...`
-# works whether the clone folder is named edu, edu_app, or anything else.
-_ROOT = os.path.dirname(os.path.abspath(__file__))
-if _ROOT not in sys.path:
-    sys.path.insert(0, _ROOT)
-if "edu" not in sys.modules:
-    _edu = types.ModuleType("edu")
-    _edu.__path__ = [_ROOT]
-    _edu.__file__ = os.path.join(_ROOT, "__init__.py")
-    sys.modules["edu"] = _edu
+# `edu/` is a package inside the platform repo. Put the repo root on path so
+# core / services / lang_services / shared resolve once (no nested mirrors).
+_EDU_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.dirname(_EDU_DIR)
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 from colorama import Fore, Back, Style, init
 from tabulate import tabulate
