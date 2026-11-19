@@ -1,0 +1,151 @@
+{
+  "_comment": "Every fact the agent is permitted to state lives in this file. A field left out is a question she will decline to answer rather than guess at, which is the correct behaviour — see edu/knowledge.py. Run `python -m edu.tools.prospectus_lint` after editing.",
+
+  "name": "XYZ International School",
+  "kind": "school",
+  "city": "Pune",
+  "academic_year": "2026-27",
+  "curriculum": "CBSE, from Nursery to Grade 12, with Science and Commerce streams in Grades 11 and 12",
+
+  "agent_name": "Aanya",
+  "agent_role": "admissions counsellor",
+
+  "personality": {
+    "tone": "warm",
+    "formality": "medium",
+    "verbosity": "concise",
+    "sales": "low",
+    "patience": "high"
+  },
+
+  "grades_open": ["Nursery", "LKG", "UKG", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 9", "Grade 11"],
+
+  "eligibility": {
+    "Nursery": "Child must be 3 years old as on 31 March 2026",
+    "LKG": "4 years as on 31 March 2026",
+    "UKG": "5 years as on 31 March 2026",
+    "Grade 1": "6 years as on 31 March 2026",
+    "Grades 2 to 8": "Transfer certificate from the previous school and a report card for the last academic year",
+    "Grade 9": "Written assessment in English, Maths and Science",
+    "Grade 11": "Minimum 60 percent in Grade 10 for Science, 50 percent for Commerce"
+  },
+
+  "fee_structure": {
+    "Nursery to UKG": "Rupees 78,000 per year, including books and uniform",
+    "Grade 1 to Grade 5": "Rupees 92,000 per year, including books and uniform",
+    "Grade 6 to Grade 8": "Rupees 1,08,000 per year",
+    "Grade 9 to Grade 10": "Rupees 1,24,000 per year",
+    "Grade 11 to Grade 12": "Rupees 1,46,000 per year",
+    "One-time admission fee": "Rupees 25,000, payable once at the time of admission",
+    "Payment": "Payable in two instalments, in April and October"
+  },
+
+  "admission_process": [
+    "Register online or at the school office and pay the registration fee of rupees 1,500",
+    "Submit the completed form along with the required documents",
+    "Attend the interaction or written assessment, depending on the grade",
+    "Receive the outcome within seven working days",
+    "Confirm the seat by paying the admission fee within ten days of the offer"
+  ],
+
+  "documents_required": [
+    "Birth certificate",
+    "Transfer certificate from the previous school, for Grade 1 and above",
+    "Report card for the last academic year",
+    "Aadhaar card of the child",
+    "Four passport-size photographs",
+    "Address proof"
+  ],
+
+  "entrance_test": "Written assessment for Grade 9 and above only. Held on the second and fourth Saturday of each month at 10 am. Nursery to Grade 8 have an informal interaction with the child and parents instead, with no preparation needed.",
+
+  "application_deadline": "30 November 2026 for the 2026-27 academic year",
+
+  "timings": "Nursery to UKG: 9 am to 12.30 pm. Grade 1 to Grade 5: 8.15 am to 2.45 pm. Grade 6 to Grade 12: 8 am to 3.30 pm. Saturdays are working for Grade 9 and above only.",
+
+  "transport": "School buses cover Kothrud, Baner, Aundh, Wakad, Hinjewadi, Bavdhan and Pashan. Fees range from rupees 8,000 to rupees 12,000 per year depending on distance. Each bus has a female attendant and GPS tracking.",
+
+  "hostel": "No hostel. XYZ International is a day school only.",
+
+  "student_teacher_ratio": "28 students per section is the maximum; the average across sections is 25. Two teachers per section up to Grade 2.",
+
+  "facilities": [
+    "Science and computer laboratories",
+    "Library with 12,000 titles",
+    "Two hundred metre track and a football field",
+    "Indoor badminton and table tennis",
+    "Music and art rooms",
+    "Medical room with a full-time nurse"
+  ],
+
+  "activities": [
+    "Football, basketball, badminton, athletics",
+    "Classical and western music",
+    "Bharatanatyam and contemporary dance",
+    "Robotics and coding club",
+    "Debate and Model United Nations",
+    "Annual residential trip from Grade 5 upwards"
+  ],
+
+  "campus_visit": "Campus visits run every Saturday between 10 am and 1 pm, and on weekdays by appointment. A visit takes about forty-five minutes and includes the classrooms, laboratories and playing fields.",
+
+  "scholarships": "Merit scholarships are available for Grade 11 admissions based on Grade 10 results. A counsellor discusses eligibility individually; the agent does not quote amounts.",
+
+  "catchment_areas": [
+    "Kothrud", "Baner", "Aundh", "Wakad", "Hinjewadi", "Bavdhan", "Pashan",
+    "Warje", "Karve Nagar", "Balewadi", "Sus", "Pimple Saudagar"
+  ],
+
+  "_catchment_aliases_comment": "Local-script spellings, including the ones people actually type and say. Without these the locality slot never fills on a Hindi or Marathi call, because a Devanagari transcript shares no characters with the Latin list above.",
+  "catchment_aliases": {
+    "Kothrud": ["कोथरूड", "कोथरुड"],
+    "Baner": ["बाणेर", "बानेर"],
+    "Aundh": ["औंध"],
+    "Wakad": ["वाकड"],
+    "Hinjewadi": ["हिंजवडी", "हिंजेवाडी"],
+    "Bavdhan": ["बावधन"],
+    "Pashan": ["पाषाण"],
+    "Warje": ["वारजे"],
+    "Karve Nagar": ["कर्वे नगर", "कर्वेनगर"],
+    "Balewadi": ["बालेवाडी"],
+    "Sus": ["सूस"],
+    "Pimple Saudagar": ["पिंपळे सौदागर"]
+  },
+
+  "contact": {
+    "Admissions office": "020 2345 6789, between 9 am and 4 pm on working days",
+    "Address": "Survey 42, Baner Road, Pune 411045",
+    "Website": "www.example-xyz-school.edu.in"
+  },
+
+  "prohibited_claims": [
+    "Never say a seat is reserved, held, or guaranteed for anyone. Only the admissions office confirms a seat.",
+    "Never quote a scholarship amount or a fee concession.",
+    "Never compare XYZ International with any other named school.",
+    "Never claim a board result, ranking or placement figure that is not listed in these facts.",
+    "Never say seats are limited or filling fast."
+  ],
+
+  "faqs": [
+    {
+      "q": "Is there an interview for the parents?",
+      "a": "For Nursery through Grade 8 there is an informal interaction with both the child and the parents. It is a conversation, not a test, and nothing needs to be prepared."
+    },
+    {
+      "q": "What is the medium of instruction?",
+      "a": "English. Hindi is taught from Grade 1 and Marathi from Grade 3, both as second and third languages."
+    },
+    {
+      "q": "Can a child join mid-year?",
+      "a": "Mid-year admission is possible up to Grade 8 if a seat is available in that section, subject to a transfer certificate."
+    },
+    {
+      "q": "Is the school co-educational?",
+      "a": "Yes, co-educational throughout."
+    },
+    {
+      "q": "How long has the school been running?",
+      "a": "Since 2009."
+    }
+  ]
+}

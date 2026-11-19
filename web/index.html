@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+  <title>Maîtria — démo vocale</title>
+  <style>
+    :root {
+      --ink: #1a2332;
+      --muted: #5b6573;
+      --line: #d9e0e8;
+      --bg: #f4f1ea;
+      --card: #fffdf8;
+      --accent: #1f6b4a;
+      --accent-2: #c45c26;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+      background: radial-gradient(1200px 600px at 10% -10%, #fff 0%, var(--bg) 55%);
+      color: var(--ink);
+    }
+    .wrap { max-width: 640px; margin: 0 auto; padding: 40px 20px 64px; }
+    h1 { font-size: 1.7rem; font-weight: 600; margin: 0 0 6px; }
+    .sub { color: var(--muted); margin: 0 0 28px; line-height: 1.45; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 12px 40px rgba(26, 35, 50, 0.06);
+    }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin: 0 0 6px; }
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font: inherit;
+      margin-bottom: 16px;
+      background: #fff;
+    }
+    button {
+      font: inherit;
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 22px;
+      cursor: pointer;
+      background: var(--accent);
+      color: #fff;
+    }
+    button:disabled { opacity: 0.5; cursor: default; }
+    button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+    button.danger { background: var(--accent-2); }
+    button.rec { background: #b91c1c; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .orb {
+      width: 88px; height: 88px; border-radius: 50%;
+      margin: 8px auto 18px;
+      background: #e8efe9;
+      border: 3px solid #c5d6cb;
+      transition: transform .2s, background .2s, border-color .2s;
+    }
+    .orb.listen { background: #d8efe3; border-color: var(--accent); transform: scale(1.05); }
+    .orb.speak { background: #f8e4d6; border-color: var(--accent-2); transform: scale(1.08); }
+    .orb.wait { background: #eeeae2; }
+    .status { text-align: center; color: var(--muted); min-height: 1.4em; margin-bottom: 18px; }
+    .log { max-height: 280px; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+    .bubble { padding: 10px 14px; border-radius: 12px; line-height: 1.4; font-size: 0.98rem; }
+    .bubble.user { background: #eef3f7; align-self: flex-end; }
+    .bubble.agent { background: #e9f4ee; align-self: flex-start; }
+    .hint { font-size: 0.8rem; color: var(--muted); margin-top: 16px; line-height: 1.4; }
+    .hidden { display: none; }
+    .err { color: #a33; margin: 0 0 12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Parler avec Camille</h1>
+    <p class="sub">Password: <b>demo</b> · Headphones · Allow microphone when Chrome asks</p>
+
+    <section id="gate" class="card">
+      <form id="join-form" action="#" method="post" onsubmit="return false;">
+        <label for="name">Your first name</label>
+        <input id="name" autocomplete="given-name" placeholder="Marie" value="Tejas" />
+        <label for="password">Password</label>
+        <input id="password" type="text" autocomplete="off" value="demo" />
+        <p class="err hidden" id="gate-err"></p>
+        <button id="join" type="button">Join call</button>
+      </form>
+      <p class="hint">On ngrok: click <b>Visit Site</b> first. Mic works on https or localhost only.</p>
+    </section>
+
+    <section id="call" class="card hidden">
+      <div id="orb" class="orb wait"></div>
+      <p class="status" id="status">Connecting…</p>
+      <div class="log" id="log"></div>
+      <div class="row" style="margin-top:18px">
+        <button id="talk" disabled>Hold to talk → click Start</button>
+        <button id="hangup" class="ghost danger">Hang up</button>
+      </div>
+      <p class="hint">
+        1) Click <b>Start talking</b> (Chrome will ask for mic — Allow).<br/>
+        2) Speak your sentence.<br/>
+        3) Click <b>Send</b>. Wait for Camille.
+      </p>
+    </section>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    let ws = null;
+    let audioCtx = null;
+    let stream = null;
+    let recorder = null;
+    let chunks = [];
+    let recording = false;
+    let speaking = false;
+    let playQueue = Promise.resolve();
+    let currentSource = null;
+    let joined = false;
+
+    function setPhase(phase, text) {
+      $("orb").className = "orb " + phase;
+      if (text) $("status").textContent = text;
+    }
+
+    function addBubble(role, text) {
+      if (!text) return;
+      const div = document.createElement("div");
+      div.className = "bubble " + role;
+      div.textContent = text;
+      $("log").appendChild(div);
+      $("log").scrollTop = $("log").scrollHeight;
+    }
+
+    function showGateError(text) {
+      $("gate-err").textContent = text;
+      $("gate-err").classList.remove("hidden");
+      $("join").disabled = false;
+      $("gate").classList.remove("hidden");
+      $("call").classList.add("hidden");
+    }
+
+    async function playWav(bytes) {
+      if (!bytes || !bytes.byteLength) return;
+      playQueue = playQueue.then(async () => {
+        speaking = true;
+        setPhase("speak", "Camille is speaking…");
+        $("talk").disabled = true;
+        if (!audioCtx) audioCtx = new AudioContext();
+        if (audioCtx.state === "suspended") await audioCtx.resume();
+        const audio = await audioCtx.decodeAudioData(bytes.slice(0));
+        await new Promise((resolve) => {
+          currentSource = audioCtx.createBufferSource();
+          currentSource.buffer = audio;
+          currentSource.connect(audioCtx.destination);
+          currentSource.onended = resolve;
+          currentSource.start();
+        });
+        currentSource = null;
+      }).catch(() => {});
+      return playQueue;
+    }
+
+    function stopPlayback() {
+      try { currentSource && currentSource.stop(); } catch (e) {}
+      currentSource = null;
+    }
+
+    function pickMime() {
+      const opts = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/ogg;codecs=opus",
+        "audio/mp4",
+      ];
+      for (const m of opts) {
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return m;
+      }
+      return "";
+    }
+
+    async function ensureMic() {
+      if (stream) return stream;
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("This browser cannot use the microphone.");
+      }
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
+      });
+      return stream;
+    }
+
+    function blobToBase64(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const s = String(reader.result || "");
+          resolve(s.includes(",") ? s.split(",")[1] : s);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    async function startTalk() {
+      if (!ws || ws.readyState !== 1 || speaking || recording) return;
+      try {
+        await ensureMic();
+      } catch (e) {
+        setPhase(
+          "wait",
+          "Mic blocked. Click the lock left of the URL → Microphone → Allow, then try again."
+        );
+        return;
+      }
+      chunks = [];
+      const mime = pickMime();
+      try {
+        recorder = mime
+          ? new MediaRecorder(stream, { mimeType: mime })
+          : new MediaRecorder(stream);
+      } catch (e) {
+        setPhase("wait", "Cannot start recorder in this browser. Use Chrome.");
+        return;
+      }
+      recorder.ondataavailable = (ev) => {
+        if (ev.data && ev.data.size > 0) chunks.push(ev.data);
+      };
+      recorder.start(250);
+      recording = true;
+      $("talk").textContent = "Send";
+      $("talk").classList.add("rec");
+      $("talk").disabled = false;
+      setPhase("listen", "Recording… speak, then click Send.");
+    }
+
+    async function stopAndSend() {
+      if (!recorder || !recording) return;
+      recording = false;
+      $("talk").disabled = true;
+      $("talk").classList.remove("rec");
+      $("talk").textContent = "Sending…";
+      setPhase("wait", "Sending your voice…");
+
+      const blob = await new Promise((resolve) => {
+        recorder.onstop = () => {
+          resolve(new Blob(chunks, { type: recorder.mimeType || "audio/webm" }));
+        };
+        try { recorder.stop(); } catch (e) { resolve(new Blob()); }
+      });
+      recorder = null;
+
+      if (!blob || blob.size < 500) {
+        setPhase("wait", "Too short — click Start talking and speak longer.");
+        $("talk").textContent = "Start talking";
+        $("talk").disabled = false;
+        return;
+      }
+
+      try {
+        const b64 = await blobToBase64(blob);
+        ws.send(JSON.stringify({
+          type: "audio_turn",
+          mime: blob.type || "audio/webm",
+          data: b64,
+        }));
+      } catch (e) {
+        setPhase("wait", "Failed to send audio. Try again.");
+        $("talk").textContent = "Start talking";
+        $("talk").disabled = false;
+      }
+    }
+
+    function onTalkClick() {
+      if (recording) stopAndSend();
+      else startTalk();
+    }
+
+    function connect(name, password) {
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      const url = proto + "://" + location.host + "/ws";
+      joined = false;
+      ws = new WebSocket(url);
+      ws.binaryType = "arraybuffer";
+      ws.onopen = () => {
+        $("gate-err").style.color = "#5b6573";
+        $("gate-err").textContent = "Connected. Camille is joining…";
+        $("gate-err").classList.remove("hidden");
+        ws.send(JSON.stringify({ type: "auth", name, password: (password || "").trim() }));
+      };
+      ws.onclose = () => {
+        recording = false;
+        $("talk").disabled = true;
+        setPhase("wait", "Call closed.");
+        if (!joined) {
+          showGateError("Connection closed. Is web_demo.py running? Password is demo.");
+        }
+      };
+      ws.onerror = () => {
+        if (!joined) {
+          showGateError("Cannot connect. Start web_demo.py, then refresh. On ngrok click Visit Site first.");
+        }
+      };
+      ws.onmessage = async (ev) => {
+        if (ev.data instanceof ArrayBuffer) {
+          await playWav(ev.data);
+          return;
+        }
+        let msg;
+        try { msg = JSON.parse(ev.data); } catch (e) { return; }
+        if (msg.type === "error") {
+          showGateError(msg.text);
+          return;
+        }
+        if (msg.type === "ready") {
+          joined = true;
+          $("gate-err").classList.add("hidden");
+          $("gate").classList.add("hidden");
+          $("call").classList.remove("hidden");
+          setPhase("wait", "Camille is calling…");
+        }
+        if (msg.type === "status") {
+          setPhase(speaking ? "speak" : (recording ? "listen" : "wait"), msg.text);
+        }
+        if (msg.type === "user") addBubble("user", msg.text);
+        if (msg.type === "assistant") addBubble("agent", msg.text);
+        if (msg.type === "listen") {
+          speaking = false;
+          $("talk").disabled = false;
+          $("talk").textContent = "Start talking";
+          $("talk").classList.remove("rec");
+          setPhase("wait", "Your turn — click Start talking.");
+        }
+        if (msg.type === "end") {
+          await playQueue;
+          speaking = false;
+          setPhase("wait", msg.text || "Call ended.");
+          $("talk").disabled = true;
+        }
+      };
+    }
+
+    function joinCall() {
+      $("gate-err").classList.add("hidden");
+      $("gate-err").style.color = "#a33";
+      const name = ($("name").value || "vous").trim();
+      const password = ($("password").value || "demo").trim();
+      if (!password) {
+        showGateError("Enter password: demo");
+        return;
+      }
+      $("join").disabled = true;
+      $("gate-err").style.color = "#5b6573";
+      $("gate-err").textContent = "Connecting…";
+      $("gate-err").classList.remove("hidden");
+      connect(name, password);
+    }
+
+    $("join").onclick = joinCall;
+    $("join-form").addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      joinCall();
+    });
+    $("talk").onclick = onTalkClick;
+    $("hangup").onclick = () => {
+      if (recording && recorder) {
+        try { recorder.stop(); } catch (e) {}
+        recording = false;
+      }
+      stopPlayback();
+      if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: "hangup" }));
+    };
+  </script>
+</body>
+</html>

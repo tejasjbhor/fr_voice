@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a2e28" />
+  <title>Maîtria — Demo Call</title>
+  <style>
+    :root {
+      --bg0: #14221e;
+      --bg1: #1e332c;
+      --ink: #f3efe6;
+      --muted: #b7c4bc;
+      --accent: #d4a35c;
+      --accent-ink: #1a2e28;
+      --line: rgba(243, 239, 230, 0.14);
+      --ok: #7dba8e;
+      --bad: #e08a7a;
+      --card: rgba(255, 255, 255, 0.04);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #2f4a40 0%, transparent 55%),
+        radial-gradient(900px 500px at 100% 0%, #3a2f1c 0%, transparent 50%),
+        linear-gradient(165deg, var(--bg0), var(--bg1));
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    main {
+      width: min(440px, 100%);
+      margin: 0 auto;
+      padding: 2rem 1.25rem 2.5rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 1.25rem;
+    }
+    .brand {
+      font-size: 0.8rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 0 0 0.35rem;
+    }
+    h1 {
+      font-size: clamp(1.8rem, 6vw, 2.2rem);
+      font-weight: 650;
+      line-height: 1.15;
+      margin: 0 0 0.4rem;
+    }
+    .lede {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.98rem;
+      line-height: 1.45;
+    }
+    form {
+      margin-top: 0.5rem;
+      padding: 1.15rem;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--card);
+      backdrop-filter: blur(8px);
+      display: grid;
+      gap: 0.9rem;
+    }
+    label {
+      display: grid;
+      gap: 0.35rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    input, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,0.25);
+      color: var(--ink);
+      border-radius: 12px;
+      padding: 0.85rem 0.95rem;
+      font-size: 1.05rem;
+      outline: none;
+    }
+    input:focus, select:focus {
+      border-color: var(--accent);
+    }
+    button {
+      margin-top: 0.25rem;
+      border: 0;
+      border-radius: 999px;
+      padding: 0.95rem 1.1rem;
+      font-size: 1.05rem;
+      font-weight: 650;
+      background: var(--accent);
+      color: var(--accent-ink);
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.55;
+      cursor: wait;
+    }
+    .status {
+      min-height: 1.4rem;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+    .status.ok { color: var(--ok); }
+    .status.bad { color: var(--bad); }
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.75rem;
+      padding: 0 1rem 1.25rem;
+      opacity: 0.75;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div>
+      <p class="brand">Maîtria</p>
+      <h1>Start a demo call</h1>
+      <p class="lede">Enter the person’s name, phone, and language. Their phone will ring.</p>
+    </div>
+
+    <form id="demoForm">
+      <label>
+        Name
+        <input id="name" name="name" autocomplete="name" placeholder="Sophie" required />
+      </label>
+      <label>
+        Phone (with country code)
+        <input id="phone" name="phone" type="tel" inputmode="tel"
+               autocomplete="tel" placeholder="+33612345678" required />
+      </label>
+      <label>
+        Language
+        <select id="language" name="language">
+          <option value="fr-FR" selected>French</option>
+          <option value="en-IN">English</option>
+        </select>
+      </label>
+      <button id="submitBtn" type="submit">Call now</button>
+      <p id="status" class="status" aria-live="polite"></p>
+    </form>
+  </main>
+  <footer>Field testing · uses Twilio outbound on this server</footer>
+
+  <script>
+    const form = document.getElementById("demoForm");
+    const statusEl = document.getElementById("status");
+    const btn = document.getElementById("submitBtn");
+
+    function setStatus(msg, kind) {
+      statusEl.textContent = msg;
+      statusEl.className = "status" + (kind ? " " + kind : "");
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("name").value.trim();
+      const phone = document.getElementById("phone").value.trim();
+      const language = document.getElementById("language").value;
+
+      if (!name || !phone) {
+        setStatus("Name and phone are required.", "bad");
+        return;
+      }
+
+      btn.disabled = true;
+      setStatus("Dialing… keep this page open a moment.", "");
+
+      try {
+        const res = await fetch("/call/outbound", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            to_number: phone,
+            language,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setStatus(data.error || ("Failed (" + res.status + ")"), "bad");
+        } else {
+          const who = data.user && data.user.name ? data.user.name : name;
+          setStatus("Ringing " + who + " at " + data.to + "…", "ok");
+        }
+      } catch (err) {
+        setStatus("Network error — is the server up?", "bad");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

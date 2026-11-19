@@ -1,0 +1,44 @@
+Reference diff for the two edits described in edu/INTEGRATION.md.
+
+Line numbers will not match your tree exactly — apply by hand, they are two
+small hunks. Both are gated on edu_config.IS_EDUCATION, so with PRODUCT unset
+or set to "health" the behaviour is byte-for-byte identical to today.
+
+--- a/telephony/session.py
++++ b/telephony/session.py
+@@
+ from shared.lang import load_lang_service, voice_language
+ from services.session_manager import SessionManager
++from edu import config as edu_config
+@@
+-    lang_svc = load_lang_service(user.get("language") or USER_LANGUAGE)
++    # Education product routes to its own pack loader. The returned object
++    # exposes the same names this module and conversation_engine reach for,
++    # so nothing downstream changes.
++    if edu_config.IS_EDUCATION:
++        from edu.lang_loader import load_edu_lang_service
++        lang_svc = load_edu_lang_service(
++            user.get("language") or edu_config.DEFAULT_LANGUAGE
++        )
++    else:
++        lang_svc = load_lang_service(user.get("language") or USER_LANGUAGE)
+@@
+-    session = SessionManager(user, lang_svc)
++    # EduSessionManager subclasses SessionManager; it overrides extraction,
++    # steering, history width and the turn cap, and inherits everything else.
++    if edu_config.IS_EDUCATION:
++        from edu.session_manager import EduSessionManager
++        session = EduSessionManager(user, lang_svc)
++    else:
++        session = SessionManager(user, lang_svc)
+
+
+Optional third hunk — persist the lead disposition on teardown. Place it after
+the existing save_conversation call in the same cleanup path.
+
+@@
+     save_conversation(...)
++    if edu_config.IS_EDUCATION:
++        # Never raises; returns None if the lead store is unavailable. A
++        # failure here must not propagate into call teardown.
++        session.persist_outcome()

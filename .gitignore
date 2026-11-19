@@ -1,0 +1,64 @@
+# Secrets
+.env
+.env.local
+*.pem
+*.key
+
+# Virtual env
+venv/
+.venv/
+env/
+
+# Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+.mypy_cache/
+.pytest_cache/
+
+# Local DB
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Audio / temp
+*.wav
+*.mp3
+temp_*
+_t*.wav
+api_audio/
+tests/out/
+_smoke_audio/
+!recordings/.gitkeep
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Archives
+*.zip
+*.rar
+*.7z
+
+# Mobile UI (Capacitor / npm)
+mobile/node_modules/
+mobile/android/
+mobile/ios/
+mobile/.capacitor/
+
+# Runtime logs / temp server output
+*.log
+server_out.txt
+sathi_call.log
+sathi_scheduler.log

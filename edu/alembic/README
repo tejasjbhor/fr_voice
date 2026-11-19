@@ -1,0 +1,3 @@
+# Alembic migrations live in versions/
+# Generate: alembic revision --autogenerate -m "message"
+# Apply:    alembic upgrade head
