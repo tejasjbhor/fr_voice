@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Saathi Admin</title>
+  <link rel="stylesheet" href="css/app.css" />
+  <style>
+    body { background: #F4EFE6; }
+    .admin { max-width: 960px; margin: 0 auto; padding: 24px 18px 60px; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0; }
+    .tabs button { padding: 8px 12px; border-radius: 999px; background: #fff; border: 1px solid #EDE4D6; font-size: 13px; }
+    .tabs button.on { background: #1F4E4A; color: #fff; border-color: #1F4E4A; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff; border-radius: 12px; overflow: hidden; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #EDE4D6; }
+    th { color: #786E62; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 12px 0 20px; }
+    .kpi { background: #fff; border: 1px solid #EDE4D6; border-radius: 14px; padding: 14px; }
+    .kpi .n { font-family: Fraunces, serif; font-size: 26px; }
+    .kpi .l { font-size: 12px; color: #786E62; }
+  </style>
+</head>
+<body>
+  <div class="admin">
+    <div class="eyebrow" style="color:#1F4E4A;">Saathi Care</div>
+    <h1 style="font-family:Fraunces,serif; font-size:28px; margin:4px 0 8px;">Admin</h1>
+    <p class="muted-note">Live data from the call server. Pin default 2499. Not a billed product dashboard.</p>
+    <div class="field" style="max-width:280px;">
+      <label>Admin pin</label>
+      <input id="pin" type="password" value="2499" />
+    </div>
+    <button class="btn-primary" type="button" id="load" style="max-width:220px;">Load dashboard</button>
+    <p id="status" class="status"></p>
+    <div class="tabs" id="tabs">
+      <button class="on" data-tab="overview">Overview</button>
+      <button data-tab="users">Subscribers &amp; users</button>
+      <button data-tab="escalations">Escalations</button>
+      <button data-tab="calls">Calls</button>
+      <button data-tab="languages">Languages</button>
+      <button data-tab="billing">Cost &amp; billing</button>
+    </div>
+    <div id="panel"></div>
+    <p style="margin-top:24px;"><a href="index.html">← Back to family app</a></p>
+  </div>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script>
+    let cache = {};
+    const panel = document.getElementById("panel");
+    const status = document.getElementById("status");
+    function pin() { return document.getElementById("pin").value.trim(); }
+    function esc(s) { return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+    function show(tab) {
+      document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
+      if (tab === "overview") {
+        const o = cache.overview || {};
+        panel.innerHTML = '<div class="kpis">' +
+          kpi(o.subscribers, "Subscribers") + kpi(o.users, "Users") +
+          kpi(o.calls, "Call sessions") + kpi("₹" + Math.round(o.mrr_inr || 0), "Displayed MRR") +
+          "</div><h3>Escalations</h3>" + alertTable(o.escalations || []);
+      } else if (tab === "users") {
+        const rows = (cache.users && cache.users.users) || [];
+        panel.innerHTML = table(["Name","Phone","Language","Family","Call time"],
+          rows.map((u) => [u.name, u.phone, u.language, u.family_contact || "—", u.call_time || "—"]));
+      } else if (tab === "escalations") {
+        panel.innerHTML = alertTable((cache.escalations && cache.escalations.alerts) || []);
+      } else if (tab === "calls") {
+        const rows = (cache.calls && cache.calls.calls) || [];
+        panel.innerHTML = table(["When","Person","Phone","Turns","Alert"],
+          rows.map((c) => [c.ended_at || "", c.user_name || "—", c.user_phone || "—", c.turns, c.alert_level || "—"]));
+      } else if (tab === "languages") {
+        const rows = (cache.languages && cache.languages.packs) || [];
+        panel.innerHTML = table(["Code","Name","TTS","Status"], rows.map((p) => [p.code, p.name, p.tts, p.status]));
+      } else if (tab === "billing") {
+        const b = cache.billing || {};
+        panel.innerHTML = '<div class="kpis">' +
+          kpi("₹" + (b.plan_price_inr || 499), "Per person / month") +
+          kpi(b.people, "People") + kpi("₹" + Math.round(b.mrr_inr || 0), "Displayed MRR") +
+          kpi("₹" + Number((b.api_costs && b.api_costs.grand_total) || 0).toFixed(2), "API spend") +
+          "</div><p class='muted-note'>" + esc(b.note) + "</p>";
+      }
+    }
+    function kpi(n, l) { return '<div class="kpi"><div class="n">' + (n ?? "—") + '</div><div class="l">' + l + "</div></div>"; }
+    function table(headers, rows) {
+      return "<table><thead><tr>" + headers.map((h) => "<th>" + h + "</th>").join("") +
+        "</tr></thead><tbody>" + (rows.length ? rows.map((r) => "<tr>" + r.map((c) => "<td>" + esc(c) + "</td>").join("") + "</tr>").join("") : "<tr><td colspan='"+headers.length+"'>No rows yet</td></tr>") + "</tbody></table>";
+    }
+    function alertTable(rows) {
+      return table(["Level","Person","Phone","Reason"], rows.map((a) => [a.alert_level || a.level, a.user_name, a.user_phone, a.trigger_reason || a.reason]));
+    }
+    document.getElementById("load").onclick = async () => {
+      localStorage.setItem("saathi_admin_pin", pin());
+      status.textContent = "Loading…";
+      try {
+        cache.overview = await fetchAdmin("/api/admin/overview", pin());
+        cache.users = await fetchAdmin("/api/admin/users", pin());
+        cache.escalations = await fetchAdmin("/api/admin/escalations", pin());
+        cache.calls = await fetchAdmin("/api/admin/calls", pin());
+        cache.languages = await fetchAdmin("/api/admin/languages", pin());
+        cache.billing = await fetchAdmin("/api/admin/billing", pin());
+        status.textContent = "Live";
+        status.className = "status ok";
+        show("overview");
+      } catch (e) {
+        status.textContent = e.message || "Failed";
+        status.className = "status bad";
+      }
+    };
+    document.getElementById("tabs").onclick = (e) => {
+      const b = e.target.closest("button");
+      if (b) show(b.dataset.tab);
+    };
+  </script>
+</body>
+</html>

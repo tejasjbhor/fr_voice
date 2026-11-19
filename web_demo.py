@@ -44,7 +44,7 @@ PASSWORD = (os.getenv("WEB_DEMO_PASSWORD") or "").strip()
 PORT = int(os.getenv("WEB_DEMO_PORT") or os.getenv("SERVER_PORT") or "8000")
 MAX_CALLS = int(os.getenv("WEB_DEMO_MAX_CALLS", "4"))
 SAMPLE_RATE = int(os.getenv("AUDIO_SAMPLE_RATE", "16000"))
-LANGUAGE = (os.getenv("USER_LANGUAGE") or "fr-FR").strip()
+LANGUAGE = (os.getenv("USER_LANGUAGE") or "hi-IN").strip()
 
 app = FastAPI(title="Maîtria voice demo", docs_url=None, redoc_url=None)
 if WEB_DIR.is_dir():

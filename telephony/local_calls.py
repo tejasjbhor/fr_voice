@@ -76,7 +76,7 @@ def _greeting_for(lang_service, name: str, history_summary) -> str:
 def start_local_call(user: dict, language: str | None = None) -> dict:
     """Create session + greeting; ready for /local-call/{id}."""
     _purge_stale()
-    lang = (language or user.get("language") or "fr-FR").strip()
+    lang = (language or user.get("language") or "hi-IN").strip()
     lang_service = load_lang_service(lang)
     session = SessionManager(user, lang_service)
     name = session.user_name

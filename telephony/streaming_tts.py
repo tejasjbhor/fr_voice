@@ -36,6 +36,8 @@ class StreamingTtsQueue:
             await self._player.enqueue_pcm(item)
 
     async def synthesize_and_enqueue(self, seq: int, text: str, language: str, tts_cfg: dict):
+        if getattr(self._player, "interrupted", False):
+            return
         held: list = []
         got_any = False
         try:
@@ -45,6 +47,8 @@ class StreamingTtsQueue:
                 temperature=tts_cfg.get("temperature"),
                 sample_rate=self._sample_rate,
             ):
+                if getattr(self._player, "interrupted", False):
+                    return
                 got_any = True
                 if self._next == seq:
                     while held:
@@ -53,6 +57,8 @@ class StreamingTtsQueue:
                 else:
                     held.append(pcm)
             if not got_any:
+                if getattr(self._player, "interrupted", False):
+                    return
                 wav = await synthesize_phrase(
                     text, language=language,
                     speaker=tts_cfg["speaker"], pace=tts_cfg["pace"],
@@ -65,6 +71,8 @@ class StreamingTtsQueue:
         except Exception as e:
             log.warning(f"Streaming TTS failed for phrase {seq}: {e}")
 
+        if getattr(self._player, "interrupted", False):
+            return
         async with self._turn:
             await self._turn.wait_for(lambda: self._next == seq)
         for item in held:

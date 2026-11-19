@@ -155,7 +155,7 @@ async def handle_call_session(
     provider: str,
     stream_sid: str = "",
 ):
-    language = user.get("language", "fr-FR")
+    language = user.get("language", "hi-IN")
     name = user.get("name", "Ji")
     if edu_config.IS_EDUCATION:
         from edu.lang_loader import load_edu_lang_service

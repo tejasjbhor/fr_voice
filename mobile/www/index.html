@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1F4E4A" />
+  <title>Saathi Care</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- REGISTER -->
+    <section class="screen" id="screen-setup">
+      <div class="setup-wrap">
+        <div class="eyebrow" style="color:var(--teal);">Saathi Care</div>
+        <h1>Create your account</h1>
+        <p class="lede">Register this phone. Home starts empty. People and check-ins appear only after you add them or a real Saathi call happens.</p>
+        <p class="muted-note" id="invite-banner" style="display:none;"></p>
+        <form id="setup-form">
+          <div class="field">
+            <label>I am</label>
+            <div class="role-pills">
+              <button type="button" class="on" data-role="family">Subscriber<br><span class="pill-sub">Son / daughter — I look after parents</span></button>
+              <button type="button" data-role="companion">User<br><span class="pill-sub">Elder — I receive Saathi’s calls</span></button>
+            </div>
+            <p class="muted-note" id="role-hint" style="margin-top:10px;">You will see a home of people you care for. Add Mum/Dad after this.</p>
+          </div>
+          <div class="field">
+            <label>Your name</label>
+            <input id="f-name" type="text" placeholder="Aditi Sharma" required />
+          </div>
+          <div class="field">
+            <label>Your phone (with country code)</label>
+            <input id="f-phone" type="tel" placeholder="+9198XXXXXXXX" required />
+          </div>
+          <div class="field" id="field-lang">
+            <label>Call language</label>
+            <select id="f-lang">
+              <option value="hi-IN">Hindi</option>
+              <option value="mr-IN">Marathi</option>
+              <option value="en-IN">English</option>
+              <option value="es-ES">Spanish</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Login code</label>
+            <input id="f-otp" type="text" inputmode="numeric" placeholder="6-digit code" autocomplete="one-time-code" />
+            <p class="muted-note" id="otp-hint">We’ll send a code. In development the server may also show a test code.</p>
+          </div>
+          <label class="consent-row"><input type="checkbox" id="f-consent-calls" /> I agree that Saathi may call this phone (and people I add) for check-ins.</label>
+          <label class="consent-row"><input type="checkbox" id="f-consent-rec" /> I agree that calls may be recorded so family can replay them.</label>
+          <label class="consent-row"><input type="checkbox" id="f-consent-health" /> I agree that health notes from the call may be stored and shown in this app.</label>
+          <p class="muted-note">Read the <a href="privacy.html" target="_blank" rel="noopener">privacy note</a> and <a href="terms.html" target="_blank" rel="noopener">terms</a>. You can delete the account later from Profile.</p>
+          <button class="btn-primary" type="submit">Register &amp; continue</button>
+          <p id="setup-status" class="status"></p>
+        </form>
+      </div>
+    </section>
+
+    <!-- COMPANION (user app) -->
+    <section class="screen" id="screen-companion">
+      <div class="appbar teal">
+        <div class="appbar-row">
+          <div>
+            <div class="eyebrow" id="date-companion">Today</div>
+            <div class="greeting" id="greet-companion">Namaste</div>
+          </div>
+        </div>
+      </div>
+      <div class="content" style="padding-bottom: calc(28px + var(--safe-bot));">
+        <div class="u-today">
+          <div class="lbl">Today, Saathi noted</div>
+          <div id="today-notes">Nothing yet. After your first live call, what you told Saathi will show here.</div>
+        </div>
+        <div class="u-med">
+          <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M10.5 20.5 3.5 13.5a5 5 0 1 1 7-7l7 7a5 5 0 1 1-7 7z"/><path d="M8.5 8.5l7 7"/></svg></div>
+          <div class="tx"><div class="t">Evening medicine reminder</div><div class="s" id="med-time-label">6:00 PM — after dinner</div></div>
+        </div>
+        <button class="u-big-btn u-call" id="btn-call-companion">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .3 2 .7 3a2 2 0 0 1-.5 2L8 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2-.5c1 .4 2 .6 3 .7a2 2 0 0 1 1.7 2z"/></svg>
+          Call Saathi now
+        </button>
+        <p id="status-companion" class="status"></p>
+        <button type="button" class="add-parent-btn" id="btn-refresh-companion">Refresh last call</button>
+        <div class="section-label">Last call</div>
+        <div id="companion-transcript" class="transcript"></div>
+        <div class="section-label">Earlier calls</div>
+        <div id="companion-calls"></div>
+        <button class="u-big-btn u-sos" id="btn-sos">I need help now</button>
+        <div class="u-family">
+          <div class="av" id="family-av">—</div>
+          <div class="t"><span id="family-who">Family is not linked yet</span><b>They will see check-ins after calls</b></div>
+        </div>
+        <div class="section-label">Call settings</div>
+        <div class="u-lang-row" id="lang-row"><span>Call language</span><b>—</b></div>
+        <button type="button" class="u-lang-row" id="open-settings" style="width:100%;">
+          <span>Open settings</span><b>→</b>
+        </button>
+      </div>
+    </section>
+
+    <!-- FAMILY HOME -->
+    <section class="screen" id="screen-family">
+      <div class="appbar teal">
+        <div class="appbar-row">
+          <div>
+            <div class="eyebrow" id="date-family">Today</div>
+            <div class="greeting" id="greet-family">Namaste</div>
+          </div>
+        </div>
+        <svg class="ekg" viewBox="0 0 350 22" fill="none"><path d="M0 11 H120 L132 11 L140 2 L150 20 L158 11 H190 L198 4 L206 18 L214 11 H350" stroke="#E8963C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="content">
+        <p class="muted-note">Add someone with a real phone number, then call. After hang-up, Refresh last call.</p>
+        <div id="home-alerts"></div>
+        <div class="section-label" id="people-label">Your people</div>
+        <button type="button" class="add-parent-btn" id="btn-refresh-home" style="margin-bottom:12px;">Refresh from last calls</button>
+        <div id="people-list"></div>
+        <button type="button" class="add-parent-btn" id="btn-add-person">+ Add a person</button>
+      </div>
+      <nav class="bottomnav">
+        <button class="nav-item active" data-tab="home">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+          <span>Home</span>
+        </button>
+        <button class="nav-item" data-tab="schedule">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
+          <span>Schedule</span>
+        </button>
+        <button class="nav-item" data-tab="profile">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+          <span>Profile</span>
+        </button>
+      </nav>
+    </section>
+
+    <!-- PERSON DETAIL -->
+    <section class="screen" id="screen-detail">
+      <div class="appbar teal">
+        <div class="appbar-row">
+          <button class="back-btn" id="back-detail" type="button">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div style="text-align:center;">
+            <div class="eyebrow" id="detail-rel">—</div>
+            <div class="greeting" id="detail-name" style="font-size:19px;">—</div>
+          </div>
+          <div style="width:34px;"></div>
+        </div>
+      </div>
+      <div class="content">
+        <div class="today-card">
+          <div class="lbl">Today’s check-in</div>
+          <p class="muted-note" style="margin:8px 0 0;" id="detail-checkin">No check-in yet. This fills after a real Saathi call.</p>
+          <div id="detail-health"></div>
+          <div class="check-row"><span>Phone</span><b id="detail-phone">—</b></div>
+          <div class="check-row"><span>Language</span><b id="detail-lang">—</b></div>
+          <div class="check-row"><span>Daily call</span><b id="detail-time">—</b></div>
+        </div>
+        <button class="u-big-btn u-call" id="btn-call-detail">Call Saathi now</button>
+        <p id="status-detail" class="status"></p>
+        <p class="muted-note" id="calls-only-note" style="display:none; margin-top:8px;"></p>
+        <div id="invite-block">
+          <button type="button" class="add-parent-btn" id="btn-share-invite">Share invite link with this person</button>
+          <button type="button" class="btn-secondary" id="btn-refresh-invite" style="width:100%; margin-top:8px;">New invite link</button>
+          <p class="muted-note" id="invite-hint" style="margin-top:8px;"></p>
+        </div>
+        <button type="button" class="add-parent-btn" id="btn-refresh-detail">Refresh last call</button>
+        <div class="section-label">Last call</div>
+        <div id="detail-transcript" class="transcript"></div>
+        <div class="section-label">Earlier calls</div>
+        <div id="detail-calls"></div>
+        <div class="section-label">Health history</div>
+        <div id="detail-health-hist"></div>
+        <button type="button" class="history-btn" id="btn-open-history">View full year of check-ins, week by week</button>
+        <button type="button" class="recordings-cta" id="btn-open-recordings">View all recordings &amp; transcripts</button>
+        <div class="check-row"><span></span><a id="btn-ambulance" class="edit-link" href="tel:108">Call ambulance 108 →</a></div>
+      </div>
+    </section>
+
+    <!-- RECORDINGS -->
+    <section class="screen" id="screen-recordings">
+      <div class="appbar teal">
+        <div class="appbar-row">
+          <button class="back-btn" id="back-recordings" type="button">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div style="text-align:center;">
+            <div class="eyebrow">Recordings &amp; transcripts</div>
+            <div class="greeting" id="recordings-parent-name" style="font-size:19px;">—</div>
+          </div>
+          <div style="width:34px;"></div>
+        </div>
+      </div>
+      <div class="content" id="recordings-content"></div>
+    </section>
+
+    <!-- HISTORY -->
+    <section class="screen" id="screen-history">
+      <div class="appbar teal">
+        <div class="appbar-row">
+          <button class="back-btn" id="back-history" type="button">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div style="text-align:center;">
+            <div class="eyebrow">Last 12 months · week by week</div>
+            <div class="greeting" id="history-parent-name" style="font-size:19px;">—</div>
+          </div>
+          <div style="width:34px;"></div>
+        </div>
+      </div>
+      <div class="content">
+        <div class="legend">
+          <span>Food</span><span>Sleep</span><span>Energy</span><span>BP</span>
+        </div>
+        <div id="history-content"></div>
+      </div>
+    </section>
+
+    <!-- SCHEDULE -->
+    <section class="screen" id="screen-schedule">
+      <div class="appbar">
+        <div class="appbar-row">
+          <div>
+            <div class="eyebrow" style="color:var(--slate);">Manage</div>
+            <div class="greeting" style="color:var(--ink); font-size:23px;">Call schedule</div>
+          </div>
+        </div>
+      </div>
+      <div class="content" id="schedule-list"></div>
+      <nav class="bottomnav">
+        <button class="nav-item" data-tab="home">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+          <span>Home</span>
+        </button>
+        <button class="nav-item active" data-tab="schedule">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
+          <span>Schedule</span>
+        </button>
+        <button class="nav-item" data-tab="profile">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+          <span>Profile</span>
+        </button>
+      </nav>
+    </section>
+
+    <!-- PROFILE -->
+    <section class="screen" id="screen-profile">
+      <div class="appbar">
+        <div class="appbar-row">
+          <div>
+            <div class="eyebrow" style="color:var(--slate);">Account</div>
+            <div class="greeting" style="color:var(--ink); font-size:23px;">Profile</div>
+          </div>
+        </div>
+      </div>
+      <div class="content">
+        <div class="profile-head">
+          <div class="profile-avatar" id="profile-av">A</div>
+          <div class="profile-name" id="profile-name">—</div>
+          <div class="profile-sub" id="profile-sub">Your account</div>
+        </div>
+        <div class="section-label">Billing</div>
+        <div class="settings-row"><span>Plan</span><b id="bill-plan">₹499 / person / month</b></div>
+        <div class="settings-row"><span>People on this plan</span><b id="bill-people">0</b></div>
+        <div class="settings-row"><span>Status</span><b id="bill-status">none</b></div>
+        <p class="muted-note">Nothing is charged. Use the test plan to try the paid screens before Razorpay.</p>
+        <button class="btn-primary" type="button" id="btn-test-plan">Activate test plan (no charge)</button>
+        <button class="btn-secondary" type="button" id="btn-cancel-plan" style="width:100%; margin-top:8px;">Cancel test plan</button>
+        <div class="section-label">Emergency</div>
+        <div class="settings-row"><span>Ambulance (India)</span><a href="tel:108">108</a></div>
+        <div class="field">
+          <label>Backup family phone</label>
+          <input id="s-backup" type="tel" placeholder="+9198XXXXXXXX" />
+        </div>
+        <div class="section-label">This phone</div>
+        <div class="field">
+          <label>Role</label>
+          <select id="s-role">
+            <option value="family">Subscriber — I look after parents</option>
+            <option value="companion">User — I receive calls</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Backend URL</label>
+          <input id="cfg-api" type="url" />
+        </div>
+        <button class="btn-primary" type="button" id="save-settings">Save</button>
+        <a class="add-parent-btn" href="admin.html" style="margin-top:12px; text-decoration:none;">Open admin dashboard</a>
+        <p class="muted-note" style="margin-top:16px;"><a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a></p>
+        <button class="btn-secondary" type="button" id="btn-delete-account" style="width:100%; margin-top:10px;">Delete my account</button>
+        <button class="btn-secondary" type="button" id="btn-reset" style="width:100%; margin-top:10px;">Start over (clear this phone)</button>
+      </div>
+      <nav class="bottomnav">
+        <button class="nav-item" data-tab="home">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+          <span>Home</span>
+        </button>
+        <button class="nav-item" data-tab="schedule">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
+          <span>Schedule</span>
+        </button>
+        <button class="nav-item active" data-tab="profile">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+          <span>Profile</span>
+        </button>
+      </nav>
+    </section>
+  </div>
+
+  <div class="modal-overlay" id="addModal">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-title">Add a person</div>
+      <div class="field"><label>Full name</label><input id="a-name" type="text" placeholder="Kamla Sharma" /></div>
+      <div class="field"><label>Relation</label>
+        <select id="a-rel"><option>Mother</option><option>Father</option><option>Grandmother</option><option>Grandfather</option></select>
+      </div>
+      <div class="field"><label>Phone (E.164)</label><input id="a-phone" type="tel" placeholder="+9198XXXXXXXX" /></div>
+      <div class="field"><label>City</label><input id="a-city" type="text" placeholder="Pune" /></div>
+      <div class="field"><label>Call language</label>
+        <select id="a-lang">
+          <option value="hi-IN">Hindi</option>
+          <option value="mr-IN">Marathi</option>
+          <option value="en-IN">English</option>
+          <option value="es-ES">Spanish</option>
+        </select>
+      </div>
+      <div class="field"><label>Daily call time</label><input id="a-time" type="time" value="09:00" /></div>
+      <div class="field">
+        <label>Do they use a smartphone (companion app)?</label>
+        <select id="a-phone-app"><option value="yes">Yes, they have one</option><option value="no">No smartphone — calls only</option></select>
+        <p class="muted-note" id="add-phone-hint" style="margin-top:8px;">Calls only: they never open the app — just answer Saathi’s phone call. You give consent when you add them.</p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" type="button" id="add-cancel">Cancel</button>
+        <button class="btn-primary" type="button" id="add-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="sosModal">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="warn-ic">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#D2483A" stroke-width="2.3"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      </div>
+      <h3>Call for help now?</h3>
+      <p>We’ll call your family via Saathi if their number is linked. Ambulance 108 is a separate phone call you place yourself.</p>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="sos-cancel">Cancel</button>
+        <a class="btn-secondary" href="tel:108" id="sos-108" style="text-align:center; line-height:46px;">Dial 108</a>
+        <button class="btn-danger" id="sos-yes">Yes, call family</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="callModal">
+    <div class="modal-sheet" id="callModalSheet"></div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

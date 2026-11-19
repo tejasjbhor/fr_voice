@@ -1,0 +1,41 @@
+# AI Sathi — local / early production stack
+#
+# Local PoC (default): leave DATABASE_URL unset → SQLite file
+# Postgres:            docker compose up -d db
+# App:                 docker compose up app   (optional)
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sathi
+      POSTGRES_PASSWORD: sathi
+      POSTGRES_DB: sathi
+    ports:
+      - "5432:5432"
+    volumes:
+      - sathi_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sathi -d sathi"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    profiles: ["full"]
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://sathi:sathi@db:5432/sathi
+      SERVER_PORT: "8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "python core/database.py && python call_server.py"
+
+volumes:
+  sathi_pgdata:

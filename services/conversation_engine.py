@@ -719,11 +719,15 @@ class OrderedTtsQueue:
         self.first_enqueued_at: float | None = None
 
     async def synthesize_and_enqueue(self, seq: int, text: str, language: str, tts_cfg: dict):
+        if getattr(self._player, "interrupted", False):
+            return
         wav = await synthesize_phrase(
             text, language=language,
             speaker=tts_cfg["speaker"],
             pace=tts_cfg["pace"],
             temperature=tts_cfg.get("temperature"))
+        if getattr(self._player, "interrupted", False):
+            return
         async with self._lock:
             self._ready[seq] = wav
             while self._next in self._ready:

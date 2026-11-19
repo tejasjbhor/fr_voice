@@ -21,7 +21,7 @@ log = setup_logging()
 
 _DEMO_HTML = Path(__file__).resolve().parent.parent / "static" / "demo.html"
 _MOBILE_WWW = Path(__file__).resolve().parent.parent.parent / "mobile" / "www"
-_ALLOWED_LANGS = {"fr-FR", "en-IN"}
+_ALLOWED_LANGS = {"hi-IN", "mr-IN", "en-IN", "es-ES", "fr-FR"}
 
 
 async def health():
@@ -64,7 +64,7 @@ async def trigger_outbound(request: Request):
     Trigger outbound call via active TELEPHONY_PROVIDER.
 
     Body:
-      { "to_number": "+33...", "name": "Sophie", "language": "fr-FR" }
+      { "to_number": "+91...", "name": "Anagha", "language": "hi-IN" }
       optional: "user_id" (ignored for demo upsert path)
     """
     try:
@@ -74,7 +74,7 @@ async def trigger_outbound(request: Request):
 
     to_number = normalize_phone(body.get("to_number", ""))
     if not to_number:
-        return JSONResponse({"error": "to_number required (E.164, e.g. +336...)"}, status_code=400)
+        return JSONResponse({"error": "to_number required (E.164, e.g. +9198...)"}, status_code=400)
 
     if not open_dialer():
         acc, err = require_account(request)
@@ -84,7 +84,7 @@ async def trigger_outbound(request: Request):
             return forbid("you can only call your own number or a person you added")
 
     name = (body.get("name") or "").strip()
-    language = (body.get("language") or "fr-FR").strip()
+    language = (body.get("language") or "hi-IN").strip()
     if language not in _ALLOWED_LANGS:
         return JSONResponse(
             {"error": f"language must be one of {sorted(_ALLOWED_LANGS)}"},

@@ -27,7 +27,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     age: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    language: Mapped[str] = mapped_column(String(16), default="fr-FR")
+    language: Mapped[str] = mapped_column(String(16), default="hi-IN")
     phone: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     family_contact: Mapped[str | None] = mapped_column(String(32), nullable=True)
     family_name: Mapped[str | None] = mapped_column(String(120), nullable=True)

@@ -240,7 +240,7 @@ async def run_sathi():
         print(f"{Fore.RED}❌ No user. Run: python core/database.py{Style.RESET_ALL}")
         sys.exit(1)
 
-    language     = user.get("language","fr-FR")
+    language     = user.get("language","hi-IN")
     if edu_config.IS_EDUCATION:
         from edu.lang_loader import load_edu_lang_service
         from edu.session_manager import EduSessionManager

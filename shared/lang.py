@@ -1,14 +1,20 @@
-"""Load language service pack by BCP-47 code (Maîtria: French + English)."""
+"""Load language service pack by BCP-47 code."""
 
 
 def load_lang_service(code: str):
-    if code in ("fr-FR", "fr-IN", "fr"):
+    if code == "mr-IN":
+        import lang_services.marathi as svc
+    elif code == "hi-IN":
+        import lang_services.hindi as svc
+    elif code in ("fr-FR", "fr-IN", "fr"):
         import lang_services.french as svc
+    elif code in ("es-ES", "es-IN", "es"):
+        import lang_services.spanish as svc
     elif code == "en-IN":
         import lang_services.english as svc
     else:
-        # Unknown / legacy codes (mr-IN, hi-IN, …) → French for this platform.
-        import lang_services.french as svc
+        # Unknown / legacy codes → English (safe default for this platform).
+        import lang_services.english as svc
     return svc
 
 

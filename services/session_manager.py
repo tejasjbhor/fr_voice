@@ -234,7 +234,7 @@ class SessionManager:
 
     @property
     def language(self) -> str:
-        return self.user.get("language", "fr-FR")
+        return self.user.get("language", "hi-IN")
 
     @property
     def prompt_version(self) -> str | None:

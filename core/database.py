@@ -154,7 +154,7 @@ def seed_test_user():
         count = s.scalar(select(func.count()).select_from(User)) or 0
         if count == 0:
             user_name = os.getenv("USER_NAME", "Ramesh")
-            language = os.getenv("USER_LANGUAGE", "fr-FR")
+            language = os.getenv("USER_LANGUAGE", "hi-IN")
             user = User(
                 name=user_name,
                 age=70,
@@ -177,7 +177,7 @@ def sync_user_from_env():
     """
     load_dotenv(override=True)
 
-    language = (os.getenv("USER_LANGUAGE") or "fr-FR").strip()
+    language = (os.getenv("USER_LANGUAGE") or "hi-IN").strip()
     name = (os.getenv("USER_NAME") or "").strip()
     phone = (os.getenv("USER_PHONE") or "").strip()
 
@@ -417,7 +417,7 @@ def get_user_by_phone(phone: str):
         return _model_to_dict(user)
 
 
-_ALLOWED_LANGS = ("fr-FR", "en-IN")
+_ALLOWED_LANGS = ("hi-IN", "mr-IN", "en-IN", "es-ES", "fr-FR")
 
 
 def normalize_phone(phone: str) -> str:
@@ -435,7 +435,7 @@ def normalize_phone(phone: str) -> str:
 def upsert_demo_user(
     name: str,
     phone: str,
-    language: str = "fr-FR",
+    language: str = "hi-IN",
     call_time: str | None = None,
     family_name: str | None = None,
     family_contact: str | None = None,
@@ -456,9 +456,9 @@ def upsert_demo_user(
     """
     phone_n = normalize_phone(phone)
     name_n = (name or "").strip()
-    lang = (language or "fr-FR").strip()
+    lang = (language or "hi-IN").strip()
     if lang not in _ALLOWED_LANGS:
-        lang = "fr-FR"
+        lang = "hi-IN"
     if not phone_n or not name_n:
         return None
     family_phone = normalize_phone(family_contact) if family_contact else ""

@@ -46,7 +46,7 @@ from telephony.otp import (
 
 log = setup_logging()
 
-_ALLOWED_LANGS = {"fr-FR", "en-IN"}
+_ALLOWED_LANGS = {"hi-IN", "mr-IN", "en-IN", "es-ES", "fr-FR"}
 _ALLOWED_ROLES = {"subscriber", "family", "user", "companion"}
 
 
@@ -209,9 +209,9 @@ async def register_account(request: Request):
         return JSONResponse({"error": "role must be subscriber or user"}, status_code=400)
     name = (body.get("name") or "").strip()
     phone = normalize_phone(body.get("phone") or "")
-    language = (body.get("language") or "fr-FR").strip()
+    language = (body.get("language") or "hi-IN").strip()
     if language not in _ALLOWED_LANGS:
-        language = "fr-FR"
+        language = "hi-IN"
     if not name or not phone:
         return JSONResponse({"error": "name and phone required"}, status_code=400)
 
@@ -279,10 +279,10 @@ async def add_person(request: Request):
     sub_name = (body.get("subscriber_name") or body.get("family_name") or "").strip() or "Family"
     name = (body.get("name") or "").strip()
     phone = normalize_phone(body.get("phone") or "")
-    language = (body.get("language") or "fr-FR").strip()
+    language = (body.get("language") or "hi-IN").strip()
     call_time = (body.get("call_time") or "09:00").strip()
     if language not in _ALLOWED_LANGS:
-        language = "fr-FR"
+        language = "hi-IN"
     if not sub_phone or not name or not phone:
         return JSONResponse(
             {"error": "subscriber_phone, name and phone required"},
@@ -322,7 +322,7 @@ async def invite_preview(code: str):
         "invite_code": user.get("invite_code"),
         "name": user.get("name"),
         "phone": user.get("phone"),
-        "language": user.get("language") or "fr-FR",
+        "language": user.get("language") or "hi-IN",
         "family_name": user.get("family_name") or "Family",
         "invite_accepted": bool(user.get("invite_accepted_at")),
         "invite_url": invite_url_for(user.get("invite_code")),
@@ -377,7 +377,7 @@ async def invite_accept(request: Request):
         return JSONResponse({"error": "invite not found or expired"}, status_code=404)
     # Keep profile in sync (name/language from form if provided)
     name = (body.get("name") or preview.get("name") or "").strip()
-    language = (body.get("language") or preview.get("language") or "fr-FR").strip()
+    language = (body.get("language") or preview.get("language") or "hi-IN").strip()
     upsert_demo_user(
         name=name or preview.get("name") or "User",
         phone=phone,
@@ -444,7 +444,7 @@ async def user_sos(request: Request):
         return JSONResponse({"error": "invalid JSON"}, status_code=400)
     phone = normalize_phone(body.get("phone") or "")
     name = (body.get("name") or "").strip() or "User"
-    language = (body.get("language") or "fr-FR").strip()
+    language = (body.get("language") or "hi-IN").strip()
     if not phone:
         return JSONResponse({"error": "phone required"}, status_code=400)
     acc, err = require_account(request)
@@ -765,8 +765,11 @@ async def admin_languages(request: Request):
     if err:
         return err
     packs = [
-        {"code": "fr-FR", "name": "French", "tts": "Fish", "status": "live"},
+        {"code": "hi-IN", "name": "Hindi", "tts": "Sarvam", "status": "live"},
+        {"code": "mr-IN", "name": "Marathi", "tts": "Sarvam", "status": "live"},
         {"code": "en-IN", "name": "English", "tts": "Sarvam", "status": "live"},
+        {"code": "es-ES", "name": "Spanish", "tts": "ElevenLabs", "status": "experimental"},
+        {"code": "fr-FR", "name": "French", "tts": "Fish", "status": "live"},
     ]
     return JSONResponse({"packs": packs})
 
