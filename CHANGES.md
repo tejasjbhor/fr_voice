@@ -5,6 +5,47 @@ root. Nested mirror copies under `edu/` / `edu_app/` were removed.
 
 ---
 
+## Inbound helpline module (2026-11-20)
+
+New `inbound/` product (edu-style): `PRODUCT=inbound` makes unknown callers
+`inbound_guest` users, loads HI/MR/EN helpline packs, skips health extract,
+appends `inbound/data/queries.jsonl`. Same 8-call concurrency gates. Guide:
+`inbound/README.md`.
+
+---
+
+## 8-call concurrency pilot tuned (2026-11-20)
+
+`.env` + safer code defaults for a budget pilot: `MAX_CONCURRENT_CALLS=8`,
+Sarvam/Claude in-flight 8, Twilio-only outbound, `OPEN_DIALER=true`,
+scheduler and auto-dial off, `SERVER_PUBLIC_URL` stripped of spaces.
+Outbound over capacity returns HTTP **503** `capacity_full`.
+Curl template: `scripts/pilot_outbound_examples.cmd`.
+Guide: `docs/PILOT_8_CALLS.md`.
+
+---
+
+## Production concurrency gates (2026-11-20)
+
+**Problem:** One process could open unlimited Twilio/Exotel sockets and stampede
+Sarvam / Claude past account rate limits, turning a spike into 429s for every
+live call.
+
+**Fix:**
+- `core/concurrency.py` — env-driven semaphores (`SARVAM_STT_MAX_INFLIGHT`,
+  `SARVAM_TTS_MAX_INFLIGHT`, `CLAUDE_MAX_INFLIGHT`).
+- `telephony/call_slots.py` — `MAX_CONCURRENT_CALLS` with `memory` or
+  `postgres` backend; Twilio busy TwiML + Exotel socket refuse.
+- `telephony/outbound.py` — shared dial path + capacity check;
+  `OUTBOUND_PROVIDER` override; `OUTBOUND_CPS` pacing in the scheduler.
+- Call replicas set `SCHEDULER_ENABLED=0`; one dialer keeps it on.
+
+Defaults leave the PoC unlimited (`MAX_CONCURRENT_CALLS=0`). Vendor plan
+upgrades are still required for 1k+ live calls — these gates only enforce
+what the account already allows.
+
+---
+
 ## Fix 1 — STT session pooling (`core/stt_service.py`)
 
 **Problem:** `_transcribe_sarvam()` opened a fresh `aiohttp.ClientSession`

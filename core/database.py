@@ -172,14 +172,22 @@ def seed_test_user():
 
 def sync_user_from_env():
     """
-    Apply USER_LANGUAGE / USER_NAME / USER_PHONE from .env to the active POC user.
-    Reloads .env each call so edits take effect without restarting the process.
+    Apply USER_NAME / USER_PHONE / USER_LANGUAGE from .env to the first active
+    PoC user — only when name or phone is explicitly set in .env.
+
+    If USER_NAME and USER_PHONE are both unset/commented, do nothing. That
+    avoids the misleading line "Synced user from .env → Mohamad" when the
+    name only existed in the database from an old test, not from .env.
     """
     load_dotenv(override=True)
 
-    language = (os.getenv("USER_LANGUAGE") or "hi-IN").strip()
+    language = (os.getenv("USER_LANGUAGE") or "").strip()
     name = (os.getenv("USER_NAME") or "").strip()
     phone = (os.getenv("USER_PHONE") or "").strip()
+
+    # No explicit identity overrides → leave the DB user alone.
+    if not name and not phone:
+        return
 
     with get_session_factory()() as s:
         user = s.scalar(select(User).where(User.active.is_(True)).order_by(User.id).limit(1))
@@ -189,15 +197,25 @@ def sync_user_from_env():
         old_name, old_lang, old_phone = user.name, user.language, user.phone or ""
         new_name = name or old_name
         new_phone = phone or old_phone
-        if new_name == old_name and language == old_lang and new_phone == old_phone:
+        new_lang = language or old_lang
+        if new_name == old_name and new_lang == old_lang and new_phone == old_phone:
             return
 
         user.name = new_name
-        user.language = language
+        user.language = new_lang
         user.phone = new_phone or None
         s.commit()
-        phone_lbl = new_phone or "(no phone)"
-        print(f"{Fore.GREEN}✅ Synced user from .env → {new_name} | {language} | {phone_lbl}{Style.RESET_ALL}")
+        parts = []
+        if name:
+            parts.append(f"name={new_name}")
+        if phone:
+            parts.append(f"phone={new_phone}")
+        if language:
+            parts.append(f"language={new_lang}")
+        print(
+            f"{Fore.GREEN}✅ Applied .env user overrides → "
+            f"{', '.join(parts) or new_name}{Style.RESET_ALL}"
+        )
 
 
 def get_default_user():

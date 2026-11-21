@@ -26,6 +26,16 @@ SARVAM_KEY  = os.getenv("SARVAM_API_KEY", "")
 STT_URL     = "https://api.sarvam.ai/speech-to-text"
 STT_TIMEOUT = int(os.getenv("STT_TIMEOUT", 30))
 
+# Pool size and in-flight gate must both sit at or under the Sarvam plan's
+# STT rate limit (Dashboard → Rate Limits). 0 on the semaphore = unlimited.
+def _stt_pool_limit() -> int:
+    raw = (os.getenv("SARVAM_STT_POOL_LIMIT") or "").strip()
+    try:
+        # Default 8 matches the PAYG / 2–8 call pilot (was 16).
+        return max(1, int(raw)) if raw else 8
+    except ValueError:
+        return 8
+
 # ── Pooled session — one keep-alive connection to Sarvam per event loop ──
 # Opening a fresh ClientSession each call paid a TCP+TLS handshake every
 # single turn (~150–300 ms). The TTS side fixed this in an earlier commit
@@ -42,7 +52,9 @@ def _sarvam_stt_session() -> aiohttp.ClientSession:
         _stt_session = aiohttp.ClientSession(
             headers={"api-subscription-key": SARVAM_KEY},
             connector=aiohttp.TCPConnector(
-                limit=16, ttl_dns_cache=300, keepalive_timeout=90,
+                limit=_stt_pool_limit(),
+                ttl_dns_cache=300,
+                keepalive_timeout=90,
             ),
         )
         _stt_loop = loop
@@ -78,36 +90,39 @@ async def _transcribe_sarvam(audio_path: str, language: str) -> dict:
     form.add_field("language_code", language)
     form.add_field("mode", "transcribe")
 
+    from core.concurrency import gated
+
     try:
-        session = _sarvam_stt_session()
-        async with session.post(
-            STT_URL,
-            data=form,
-            timeout=aiohttp.ClientTimeout(total=STT_TIMEOUT),
-        ) as resp:
-            latency = time.time() - t0
-            if resp.status != 200:
-                body = await resp.text()
-                print(f"\n  {Fore.RED}❌ STT {resp.status}: {body}{Style.RESET_ALL}")
-                return {"transcript": "", "error": body}
+        async with gated("sarvam_stt", "SARVAM_STT_MAX_INFLIGHT", 8):
+            session = _sarvam_stt_session()
+            async with session.post(
+                STT_URL,
+                data=form,
+                timeout=aiohttp.ClientTimeout(total=STT_TIMEOUT),
+            ) as resp:
+                latency = time.time() - t0
+                if resp.status != 200:
+                    body = await resp.text()
+                    print(f"\n  {Fore.RED}❌ STT {resp.status}: {body}{Style.RESET_ALL}")
+                    return {"transcript": "", "error": body}
 
-            body = await resp.json(content_type=None)
-            transcript = body.get("transcript", "").strip()
-            duration   = body.get("duration", 0) or 0
+                body = await resp.json(content_type=None)
+                transcript = body.get("transcript", "").strip()
+                duration   = body.get("duration", 0) or 0
 
-            print(f" {Fore.GREEN}✅ {latency:.2f}s{Style.RESET_ALL}")
-            if transcript:
-                print(f"  {Fore.YELLOW}📝  \"{transcript}\"{Style.RESET_ALL}")
-            else:
-                print(f"  {Fore.YELLOW}⚠️  Empty — speak louder.{Style.RESET_ALL}")
+                print(f" {Fore.GREEN}✅ {latency:.2f}s{Style.RESET_ALL}")
+                if transcript:
+                    print(f"  {Fore.YELLOW}📝  \"{transcript}\"{Style.RESET_ALL}")
+                else:
+                    print(f"  {Fore.YELLOW}⚠️  Empty — speak louder.{Style.RESET_ALL}")
 
-            return {
-                "transcript": transcript,
-                "duration":   duration,
-                "latency":    round(latency, 3),
-                "cost_inr":   round(duration * (30 / 3600), 4),
-                "error":      None,
-            }
+                return {
+                    "transcript": transcript,
+                    "duration":   duration,
+                    "latency":    round(latency, 3),
+                    "cost_inr":   round(duration * (30 / 3600), 4),
+                    "error":      None,
+                }
 
     except asyncio.TimeoutError:
         print(f"\n  {Fore.RED}❌ STT timeout{Style.RESET_ALL}")

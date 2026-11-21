@@ -1,0 +1,34 @@
+# Optional Blueprint — you can also create the Web Service in the Render UI.
+# Laptop local run is unchanged: python call_server.py + ngrok.
+services:
+  - type: web
+    name: sathi-call-server
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: OPEN_DIALER
+        value: "true"
+      - key: SCHEDULER_ENABLED
+        value: "0"
+      - key: AUTO_DIAL_ON_START
+        value: "false"
+      - key: TTS_PROVIDER_EN
+        value: sarvam
+      - key: TTS_PROVIDER_HI
+        value: sarvam
+      - key: TTS_PROVIDER_MR
+        value: sarvam
+      - key: STT_PROVIDER_EN
+        value: sarvam
+      - key: STT_PROVIDER_HI
+        value: sarvam
+      - key: STT_PROVIDER_MR
+        value: sarvam
+      - key: MAX_CONCURRENT_CALLS
+        value: "8"
+      # Set these in the Render Dashboard (Secrets) — do not put real keys in git:
+      # SERVER_PUBLIC_URL, SARVAM_API_KEY, ANTHROPIC_API_KEY / CLAUDE keys,
+      # TWILIO_*, TELEPHONY_PROVIDER, OUTBOUND_PROVIDER, APP_SECRET, DATABASE_URL (optional)

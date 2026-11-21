@@ -210,6 +210,21 @@ async def websocket_audio(ws: WebSocket):
         await ws.close()
         return
 
+    from telephony.call_slots import release_slot, try_acquire_slot
+
+    # Exotel opens the Voicebot WebSocket directly — no TwiML step — so the
+    # capacity check and the durable slot live here. Refuse by closing the
+    # socket; Exotel tears down the PSTN leg.
+    if not await try_acquire_slot():
+        log.warning(f"Exotel busy-out | from={caller}")
+        try:
+            await ws.close()
+        except Exception:
+            pass
+        if PROVIDER_HANGUP_ENABLED and call_sid:
+            await asyncio.to_thread(_hangup, call_sid)
+        return
+
     try:
         await handle_call_session(
             ws, user, session_id, provider="exotel", stream_sid=stream_sid,
@@ -219,6 +234,7 @@ async def websocket_audio(ws: WebSocket):
     except Exception as e:
         log.error(f"Call error: {e}", exc_info=True)
     finally:
+        await release_slot()
         # handle_call_session already closed the socket the moment her last
         # words finished playing; this is a no-op on the normal path.
         try:

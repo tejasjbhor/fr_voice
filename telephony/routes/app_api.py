@@ -481,7 +481,9 @@ async def user_sos(request: Request):
 
 
 async def _dial_number(to_number: str) -> bool:
-    if TELEPHONY_PROVIDER == "local":
+    from telephony.outbound import place_outbound_call, resolve_outbound_provider
+
+    if resolve_outbound_provider() == "local":
         from core.database import get_user_by_phone
         from telephony.local_calls import start_local_call
         user = get_user_by_phone(to_number)
@@ -489,14 +491,8 @@ async def _dial_number(to_number: str) -> bool:
             return False
         start_local_call(user, language=user.get("language"))
         return True
-    if TELEPHONY_PROVIDER == "twilio":
-        from telephony.adapters.twilio import make_twilio_outbound_call
-        return bool(make_twilio_outbound_call(to_number))
-    if TELEPHONY_PROVIDER == "frejun":
-        from telephony.adapters.frejun import make_frejun_outbound_call
-        return bool(await make_frejun_outbound_call(to_number))
-    from telephony.adapters.exotel import exotel_websocket_url, make_exotel_outbound_call
-    return bool(make_exotel_outbound_call(to_number, exotel_websocket_url()))
+    ok, _err = await place_outbound_call(to_number)
+    return bool(ok)
 
 
 def _recording_path(session_id: str) -> str | None:

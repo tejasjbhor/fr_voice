@@ -7,7 +7,11 @@
 # Virtual env
 venv/
 .venv/
+venv311/
 env/
+
+# Cursor / local agent
+.cursor/
 
 # Python
 __pycache__/

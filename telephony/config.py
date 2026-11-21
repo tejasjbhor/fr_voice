@@ -27,7 +27,8 @@ TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
 TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
 
 # Server
-SERVER_PUBLIC_URL = os.getenv("SERVER_PUBLIC_URL", "")
+# Strip spaces — a leading space in .env breaks Twilio Stream URLs silently.
+SERVER_PUBLIC_URL = (os.getenv("SERVER_PUBLIC_URL") or "").strip()
 # Cloud hosts (Render, etc.) inject PORT; fall back to SERVER_PORT / 8000.
 SERVER_PORT = int(os.getenv("PORT") or os.getenv("SERVER_PORT", "8000"))
 

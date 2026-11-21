@@ -79,11 +79,18 @@ async def _auto_dial_user_phone():
 
 async def startup_banner():
     from edu import config as edu_config
+    from inbound import config as inbound_config
 
-    product = "Maîtria (education)" if edu_config.IS_EDUCATION else "AI Sathi"
+    if inbound_config.IS_INBOUND:
+        product = f"Inbound helpline ({inbound_config.SERVICE_NAME})"
+    elif edu_config.IS_EDUCATION:
+        product = "Maîtria (education)"
+    else:
+        product = "AI Sathi"
     print(f"\n{Fore.BLUE}{'═'*60}")
     print(f"  📞  {product} Call Server")
     print(f"  Provider: {TELEPHONY_PROVIDER}")
+    print(f"  PRODUCT: {inbound_config.PRODUCT}")
     print(f"  Port: {SERVER_PORT}")
     print(f"  Public URL: {SERVER_PUBLIC_URL or '⚠️  NOT SET'}")
     public = SERVER_PUBLIC_URL.rstrip("/") if SERVER_PUBLIC_URL else ""
@@ -103,8 +110,36 @@ async def startup_banner():
         print(f"  Exotel WS: {ws}/call/audio" if public else "  Exotel WS: (set SERVER_PUBLIC_URL)")
     model = f"Claude {CLAUDE_MODEL}" if LLM_PROVIDER == "claude" else f"Ollama {OLLAMA_MODEL}"
     print(f"  LLM: {model}")
+    from core.concurrency import configured_limit
+    from telephony.call_slots import capacity_snapshot
+    from telephony.daily_calls import scheduler_enabled
+    from telephony.outbound import resolve_outbound_provider
+
+    cap = capacity_snapshot()
+    print(f"  Outbound dial: {resolve_outbound_provider()}")
+    print(f"  Scheduler: {'ON' if scheduler_enabled() else 'OFF (set SCHEDULER_ENABLED=1 on the dialer only)'}")
+    print(
+        f"  Call slots: "
+        f"{'off' if not cap['max_concurrent_calls'] else cap['max_concurrent_calls']}"
+        f" ({cap['backend']})"
+    )
+    print(
+        f"  Sarvam gates: STT={configured_limit('sarvam_stt','SARVAM_STT_MAX_INFLIGHT',8)}"
+        f" TTS={configured_limit('sarvam_tts','SARVAM_TTS_MAX_INFLIGHT',8)}"
+        f" | Claude={configured_limit('claude','CLAUDE_MAX_INFLIGHT',8) or 'off'}"
+    )
+    slots = cap.get("max_concurrent_calls") or 0
+    if 1 <= slots <= 16:
+        print(f"  Pilot mode: {slots} concurrent max —  "
+              f"{slots + 1}th call gets busy-out (Twilio Say / Exotel close)")
     if AUTO_DIAL_ON_START:
         print(f"  Auto-dial: ON → {USER_PHONE or '(set USER_PHONE)'}")
+        if slots > 0:
+            print(f"  {Fore.YELLOW}⚠️  AUTO_DIAL_ON_START with a call cap — "
+                  f"prefer manual dial during concurrency tests{Style.RESET_ALL}")
+    if scheduler_enabled() and slots > 0:
+        print(f"  {Fore.YELLOW}⚠️  Scheduler ON during capped pilot — "
+              f"set SCHEDULER_ENABLED=0 to avoid burning Twilio/Sarvam{Style.RESET_ALL}")
     print(f"{'═'*60}{Style.RESET_ALL}\n")
 
     setup_database()
@@ -116,6 +151,12 @@ async def startup_banner():
     if IS_PRODUCTION:
         print(f"{Fore.CYAN}ℹ️  APP_ENV={APP_ENV}: skipping test-user seed and "
               f".env user sync{Style.RESET_ALL}")
+    elif inbound_config.IS_INBOUND:
+        # Helpline guests are created per caller — do not rewrite the first
+        # DB row from leftover USER_NAME / USER_PHONE PoC values.
+        print(f"{Fore.CYAN}ℹ️  PRODUCT=inbound: skipping .env user sync "
+              f"(callers become inbound_guest rows){Style.RESET_ALL}")
+        seed_test_user()
     else:
         seed_test_user()
         sync_user_from_env()

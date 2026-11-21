@@ -157,7 +157,12 @@ async def handle_call_session(
 ):
     language = user.get("language", "hi-IN")
     name = user.get("name", "Ji")
-    if edu_config.IS_EDUCATION:
+    from inbound import config as inbound_config
+
+    if inbound_config.IS_INBOUND:
+        from inbound.lang_loader import load_inbound_lang_service
+        lang_svc = load_inbound_lang_service(language or inbound_config.DEFAULT_LANGUAGE)
+    elif edu_config.IS_EDUCATION:
         from edu.lang_loader import load_edu_lang_service
         lang_svc = load_edu_lang_service(language or edu_config.DEFAULT_LANGUAGE)
     else:
@@ -168,7 +173,10 @@ async def handle_call_session(
     # SessionManager brings its own UsageMeter. There is deliberately no
     # reset_costs() here — it used to zero the shared counters and take every
     # other call in this process down with it.
-    if edu_config.IS_EDUCATION:
+    if inbound_config.IS_INBOUND:
+        from inbound.session_manager import InboundSessionManager
+        session = InboundSessionManager(user, lang_svc)
+    elif edu_config.IS_EDUCATION:
         from edu.session_manager import EduSessionManager
         session = EduSessionManager(user, lang_svc)
     else:
@@ -862,8 +870,10 @@ async def _persist_call(user, session, session_id, lang_svc):
         rec.save()
     history = get_session_history(session_id, user["id"])
 
-    if edu_config.IS_EDUCATION:
-        # Admissions / Maîtria: no health extract. Persist lead outcome only.
+    from inbound import config as inbound_config
+
+    if inbound_config.IS_INBOUND or edu_config.IS_EDUCATION:
+        # Helpline / admissions: no health extract. Persist product outcome only.
         try:
             session.persist_outcome()
         except Exception as e:

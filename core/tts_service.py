@@ -22,6 +22,16 @@ STT_TIMEOUT     = int(os.getenv("STT_TIMEOUT","30"))
 TTS_TIMEOUT     = int(os.getenv("TTS_TIMEOUT","30"))
 
 
+def _tts_pool_limit() -> int:
+    # Match or stay under Sarvam Dashboard → Rate Limits for REST TTS.
+    raw = (os.getenv("SARVAM_TTS_POOL_LIMIT") or "").strip()
+    try:
+        # Default 8 matches the PAYG / 2–8 call pilot (was 32).
+        return max(1, int(raw)) if raw else 8
+    except ValueError:
+        return 8
+
+
 # ── One pooled connection to Sarvam, not one per phrase ───────────
 #
 # Every TTS and STT call used to open its own aiohttp.ClientSession, which
@@ -34,6 +44,9 @@ TTS_TIMEOUT     = int(os.getenv("TTS_TIMEOUT","30"))
 # The session is bound to the loop that created it, so it is rebuilt if it is
 # ever used from a different one — that only happens in tests, where the old
 # session's connector is dropped with the loop it belonged to.
+#
+# SARVAM_TTS_MAX_INFLIGHT sits in front of this pool so concurrent calls wait
+# in our queue instead of all firing and collecting HTTP 429s.
 _http_session: aiohttp.ClientSession | None = None
 _http_loop = None
 
@@ -46,7 +59,9 @@ def _sarvam_session() -> aiohttp.ClientSession:
         _http_session = aiohttp.ClientSession(
             headers=HEADERS,
             connector=aiohttp.TCPConnector(
-                limit=32, ttl_dns_cache=300, keepalive_timeout=90,
+                limit=_tts_pool_limit(),
+                ttl_dns_cache=300,
+                keepalive_timeout=90,
             ),
         )
         _http_loop = loop
@@ -149,6 +164,8 @@ async def synthesize_phrase(text: str, language: str = "fr-FR",
         print(f"\n  {Fore.YELLOW}⚠️  ElevenLabs TTS failed — falling back to Sarvam{Style.RESET_ALL}")
 
     # ── Sarvam (primary for HI/MR/EN, fallback for others) ──────────────
+    from core.concurrency import gated
+
     temp = TTS_TEMPERATURE if temperature is None else float(temperature)
     payload = {"text": text.strip(), "target_language_code": language,
                "model": "bulbul:v3", "speaker": speaker,
@@ -156,18 +173,19 @@ async def synthesize_phrase(text: str, language: str = "fr-FR",
                "enable_preprocessing": True, "pace": pace, "temperature": temp}
     for attempt in range(2):
         try:
-            s = _sarvam_session()
-            async with s.post(TTS_URL, json=payload,
-                              timeout=aiohttp.ClientTimeout(total=TTS_TIMEOUT)) as resp:
-                if resp.status == 200:
-                    body = await resp.json(content_type=None)
-                    return base64.b64decode(body.get("audios", [""])[0])
-                if resp.status >= 500 and attempt == 0:
-                    await asyncio.sleep(0.4)
-                    continue
-                body = await resp.text()
-                print(f"\n  {Fore.RED}❌ TTS {resp.status}: {body}{Style.RESET_ALL}")
-                return None
+            async with gated("sarvam_tts", "SARVAM_TTS_MAX_INFLIGHT", 8):
+                s = _sarvam_session()
+                async with s.post(TTS_URL, json=payload,
+                                  timeout=aiohttp.ClientTimeout(total=TTS_TIMEOUT)) as resp:
+                    if resp.status == 200:
+                        body = await resp.json(content_type=None)
+                        return base64.b64decode(body.get("audios", [""])[0])
+                    if resp.status >= 500 and attempt == 0:
+                        await asyncio.sleep(0.4)
+                        continue
+                    body = await resp.text()
+                    print(f"\n  {Fore.RED}❌ TTS {resp.status}: {body}{Style.RESET_ALL}")
+                    return None
         except asyncio.TimeoutError:
             print(f"\n  {Fore.RED}❌ TTS timeout{Style.RESET_ALL}")
             return None
@@ -194,7 +212,13 @@ async def text_to_speech_full(text: str, language: str = "fr-FR",
     """
     if not text or not text.strip():
         return {"wav_bytes": None, "char_count": 0, "cost_inr": 0}
-    print(f"  {Fore.CYAN}🔊  TTS (full)...{Style.RESET_ALL}", end="", flush=True)
+    if uses_fish_tts(language):
+        provider = "Fish"
+    elif uses_elevenlabs_tts(language):
+        provider = "ElevenLabs"
+    else:
+        provider = "Sarvam bulbul:v3"
+    print(f"  {Fore.CYAN}🔊  TTS ({provider})...{Style.RESET_ALL}", end="", flush=True)
     start = time.time()
     sentences = _split_sentences(text)
     results = await asyncio.gather(

@@ -78,13 +78,23 @@ def due_users(now_utc: datetime | None = None) -> list[dict]:
 
 
 async def tick() -> dict:
-    """Place due calls. Safe to run every 30s — last_scheduled_on blocks repeats."""
+    """Place due calls. Safe to run every 30s — last_scheduled_on blocks repeats.
+
+    Pace outbound to OUTBOUND_CPS (calls per second). Carrier accounts reject
+    a blast of simultaneous dials even when channels are free. Cap also
+    respects MAX_CONCURRENT_CALLS via place_outbound_call.
+    """
+    import asyncio
+
     from telephony.routes.app_api import _dial_number
+
+    cps = float(os.getenv("OUTBOUND_CPS") or "2")
+    gap = (1.0 / cps) if cps > 0 else 0.0
 
     due = due_users()
     placed = []
     errors = []
-    for user in due:
+    for i, user in enumerate(due):
         today = _local_now(user.get("timezone") or "Asia/Kolkata").strftime("%Y-%m-%d")
         mark_last_scheduled(user["id"], today)
         ok = False
@@ -100,6 +110,8 @@ async def tick() -> dict:
             "ok": bool(ok),
         })
         log.info(f"Scheduled call → {user.get('name')} {user.get('phone')} ok={ok}")
+        if gap > 0 and i + 1 < len(due):
+            await asyncio.sleep(gap)
     return {"due": len(due), "placed": placed, "errors": errors}
 
 

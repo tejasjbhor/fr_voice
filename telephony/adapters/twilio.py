@@ -24,6 +24,23 @@ from telephony.user_resolver import resolve_user
 log = setup_logging()
 
 
+def _busy_twiml(
+    message: str = (
+        "All lines are busy right now. This is a Twilio system message, "
+        "not Sathi. Please try again later."
+    ),
+) -> str:
+    # Refuse before <Connect><Stream> so we never open a WebSocket we cannot serve.
+    # language=en-US makes it obvious this is Twilio <Say>, not Sarvam Priya.
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        "<Response>"
+        f'<Say language="en-US">{xml_escape(message)}</Say>'
+        "<Hangup/>"
+        "</Response>"
+    )
+
+
 async def twilio_voice(request: Request):
     try:
         form = await request.form()
@@ -38,8 +55,24 @@ async def twilio_voice(request: Request):
 
     if not SERVER_PUBLIC_URL or is_placeholder(SERVER_PUBLIC_URL):
         log.error("SERVER_PUBLIC_URL missing — cannot build Twilio Stream URL")
-        twiml = '<?xml version="1.0" encoding="UTF-8"?><Response><Say>Server misconfigured.</Say></Response>'
+        twiml = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            "<Response>"
+            '<Say language="en-US">'
+            "Server misconfigured. This is a Twilio system message, not Sathi. "
+            "Check SERVER PUBLIC URL and ngrok."
+            "</Say>"
+            "</Response>"
+        )
         return Response(content=twiml, media_type="application/xml")
+
+    from telephony.call_slots import has_capacity
+
+    # Soft check before <Connect><Stream>. The media WebSocket takes the
+    # durable slot; if two calls race the last seat, the loser closes there.
+    if not await has_capacity():
+        log.warning(f"Twilio busy-out | from={caller}")
+        return Response(content=_busy_twiml(), media_type="application/xml")
 
     public = SERVER_PUBLIC_URL.rstrip("/")
     ws = public.replace("https://", "wss://").replace("http://", "ws://")
@@ -157,6 +190,18 @@ async def twilio_media_stream(ws: WebSocket):
         await ws.close()
         return
 
+    from telephony.call_slots import release_slot, try_acquire_slot
+
+    if not await try_acquire_slot():
+        log.warning(f"Twilio stream refused — capacity full | from={caller}")
+        try:
+            await ws.close()
+        except Exception:
+            pass
+        if PROVIDER_HANGUP_ENABLED and call_sid:
+            await asyncio.to_thread(_hangup, call_sid)
+        return
+
     try:
         await handle_call_session(
             ws, user, session_id, provider="twilio", stream_sid=stream_sid,
@@ -171,6 +216,7 @@ async def twilio_media_stream(ws: WebSocket):
     except Exception as e:
         log.error(f"Twilio call error: {e}", exc_info=True)
     finally:
+        await release_slot()
         # handle_call_session already closed the socket the moment her last
         # words finished playing; this is a no-op on the normal path.
         try:

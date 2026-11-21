@@ -33,8 +33,14 @@ def resolve_user(phone: str = "") -> Optional[dict]:
         answers — blood pressure, sugar, mood — were written to user #1's
         health record. Mixing two people's medical history is worse than
         dropping the call, so in production we drop the call.
+
+    Inbound helpline (PRODUCT=inbound) is the opposite: unknown callers are
+    expected. They get an `inbound_guest` row with schedule_enabled=False so
+    they never land on a patient's health record or the daily dialer.
     """
     global _warned_dev_fallback
+
+    from inbound import config as inbound_config
 
     if phone:
         user = get_user_by_phone(phone)
@@ -44,6 +50,19 @@ def resolve_user(phone: str = "") -> Optional[dict]:
         log.warning(f"No active user registered for caller {phone}")
     else:
         log.warning("Call arrived without a caller number")
+
+    if inbound_config.IS_INBOUND:
+        from inbound.store import ensure_inbound_guest
+
+        guest = ensure_inbound_guest(phone or "")
+        if guest:
+            log.info(
+                f"Inbound guest | phone={guest.get('phone')} | "
+                f"lang={guest.get('language')} | id={guest.get('id')}"
+            )
+            return guest
+        log.error("Inbound guest create failed — closing call")
+        return None
 
     if IS_PRODUCTION:
         log.error(

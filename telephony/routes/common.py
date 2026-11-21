@@ -9,13 +9,12 @@ from sqlalchemy import text
 
 from core.database import normalize_phone, recordings_info, upsert_demo_user
 from core.db_engine import get_engine, resolve_database_url
-from telephony.adapters.exotel import exotel_websocket_url, make_exotel_outbound_call
-from telephony.adapters.frejun import make_frejun_outbound_call
-from telephony.adapters.twilio import make_twilio_outbound_call
 from telephony.auth import can_access_phone, forbid, open_dialer, require_account
+from telephony.call_slots import active_calls, capacity_snapshot, max_concurrent_calls
 from telephony.config import APP_ENV, TELEPHONY_PROVIDER
 from telephony.local_calls import active_local_count, start_local_call
 from telephony.log import setup_logging
+from telephony.outbound import place_outbound_call, resolve_outbound_provider
 
 log = setup_logging()
 
@@ -41,12 +40,23 @@ async def health():
     except Exception as e:
         log.warning(f"Health DB check failed: {e}")
 
+    capacity = capacity_snapshot()
+    if max_concurrent_calls() > 0 and capacity.get("backend") == "postgres":
+        try:
+            n = await active_calls()
+            capacity["active"] = n
+            capacity["available"] = max(0, max_concurrent_calls() - n)
+        except Exception as e:
+            log.warning(f"Capacity check failed: {e}")
+
     return {
         "status": "ok" if db_ok else "degraded",
         "service": "AI Sathi Call Server v9",
         "telephony_provider": TELEPHONY_PROVIDER,
+        "outbound_provider": resolve_outbound_provider(),
         "app_env": APP_ENV,
         "database": {"ok": db_ok, "backend": db_backend},
+        "capacity": capacity,
         "recordings": recordings_info(),
         "local_calls_active": active_local_count() if TELEPHONY_PROVIDER == "local" else 0,
     }
@@ -108,7 +118,9 @@ async def trigger_outbound(request: Request):
             f"(or APP_ENV=development default user will be used)"
         )
 
-    if TELEPHONY_PROVIDER == "local":
+    provider = resolve_outbound_provider()
+
+    if provider == "local":
         if not user:
             return JSONResponse(
                 {"error": "local mode needs a known user — pass name or add the person first"},
@@ -126,19 +138,14 @@ async def trigger_outbound(request: Request):
             "user": started.get("user"),
         })
 
-    if TELEPHONY_PROVIDER == "frejun":
-        ok = await make_frejun_outbound_call(to_number)
-    elif TELEPHONY_PROVIDER == "twilio":
-        ok = make_twilio_outbound_call(to_number)
-    else:
-        ok = make_exotel_outbound_call(to_number, exotel_websocket_url())
+    ok, err = await place_outbound_call(to_number, provider=provider)
 
     if ok:
-        log.info(f"Outbound ({TELEPHONY_PROVIDER}) → {to_number}")
+        log.info(f"Outbound ({provider}) → {to_number}")
         return JSONResponse({
             "status": "dialing",
             "to": to_number,
-            "provider": TELEPHONY_PROVIDER,
+            "provider": provider,
             "user": {
                 "id": user.get("id"),
                 "name": user.get("name"),
@@ -146,7 +153,21 @@ async def trigger_outbound(request: Request):
                 "phone": user.get("phone"),
             } if user else None,
         })
-    return JSONResponse({"error": "Failed to trigger call"}, status_code=500)
+    if err == "capacity_full":
+        from telephony.call_slots import active_calls, max_concurrent_calls
+        return JSONResponse(
+            {
+                "error": "capacity_full",
+                "message": "All lines are busy — try again when a call ends",
+                "max_concurrent_calls": max_concurrent_calls(),
+                "active": await active_calls(),
+            },
+            status_code=503,
+        )
+    return JSONResponse(
+        {"error": err or "Failed to trigger call"},
+        status_code=500,
+    )
 
 
 def register(app: FastAPI) -> None:

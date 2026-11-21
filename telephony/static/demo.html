@@ -126,6 +126,7 @@
       <p class="brand">Maîtria</p>
       <h1>Start a demo call</h1>
       <p class="lede">Enter the person’s name, phone, and language. Their phone will ring.</p>
+      <p id="serverStatus" class="lede" style="margin-top:0.6rem;font-size:0.85rem">Checking server…</p>
     </div>
 
     <form id="demoForm">
@@ -151,17 +152,43 @@
       <p id="status" class="status" aria-live="polite"></p>
     </form>
   </main>
-  <footer>Field testing · uses Twilio outbound on this server</footer>
+  <footer>Laptop or Render · same app · wake Free Render once, then dial</footer>
 
   <script>
     const form = document.getElementById("demoForm");
     const statusEl = document.getElementById("status");
+    const serverEl = document.getElementById("serverStatus");
     const btn = document.getElementById("submitBtn");
 
     function setStatus(msg, kind) {
       statusEl.textContent = msg;
       statusEl.className = "status" + (kind ? " " + kind : "");
     }
+
+    async function pingHealth(timeoutMs) {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), timeoutMs || 90000);
+      try {
+        const res = await fetch("/health", { signal: ctrl.signal });
+        clearTimeout(t);
+        return res.ok;
+      } catch (e) {
+        clearTimeout(t);
+        return false;
+      }
+    }
+
+    (async function wakeCheck() {
+      serverEl.textContent = "Waking server (Free Render can take ~1 min)…";
+      const ok = await pingHealth(90000);
+      if (ok) {
+        serverEl.textContent = "Server awake — you can place calls.";
+        serverEl.style.color = "var(--ok)";
+      } else {
+        serverEl.textContent = "Server not responding yet — wait and refresh.";
+        serverEl.style.color = "var(--bad)";
+      }
+    })();
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -175,6 +202,14 @@
       }
 
       btn.disabled = true;
+      setStatus("Checking server is awake…", "");
+      const awake = await pingHealth(90000);
+      if (!awake) {
+        setStatus("Server still waking — wait ~1 min, refresh, then Call again.", "bad");
+        btn.disabled = false;
+        return;
+      }
+
       setStatus("Dialing… keep this page open a moment.", "");
 
       try {
@@ -189,13 +224,13 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          setStatus(data.error || ("Failed (" + res.status + ")"), "bad");
+          setStatus(data.error || data.message || ("Failed (" + res.status + ")"), "bad");
         } else {
           const who = data.user && data.user.name ? data.user.name : name;
           setStatus("Ringing " + who + " at " + data.to + "…", "ok");
         }
       } catch (err) {
-        setStatus("Network error — is the server up?", "bad");
+        setStatus("Network error — wake the server (open /demo) and retry.", "bad");
       } finally {
         btn.disabled = false;
       }
