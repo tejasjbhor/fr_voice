@@ -3,19 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0f1a17" />
-  <title>Sathi</title>
+  <meta name="theme-color" content="#0c1424" />
+  <title>Saathi voice agent</title>
   <style>
     :root {
-      --bg0: #0c1412;
-      --bg1: #152420;
-      --ink: #f2f0ea;
-      --muted: #9aaba3;
-      --accent: #3d9b7a;
-      --accent-ink: #04110c;
+      --bg0: #0a1220;
+      --bg1: #132238;
+      --ink: #f0f4fa;
+      --muted: #8fa3bc;
+      --accent: #3b82f6;
+      --accent-ink: #061018;
       --danger: #c45c4a;
-      --line: rgba(242, 240, 234, 0.12);
-      --ok: #6fbf8a;
+      --line: rgba(240, 244, 250, 0.12);
+      --ok: #60a5fa;
       --bad: #e08a7a;
       --card: rgba(255, 255, 255, 0.04);
     }
@@ -25,7 +25,7 @@
       font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
       color: var(--ink);
       background:
-        radial-gradient(900px 500px at 0% 0%, #1a3d32 0%, transparent 55%),
+        radial-gradient(900px 500px at 0% 0%, #1a3358 0%, transparent 55%),
         linear-gradient(165deg, var(--bg0), var(--bg1));
       min-height: 100%;
       display: flex;
@@ -142,14 +142,14 @@
 <body>
   <main>
     <div>
-      <h1>Sathi</h1>
-      <p class="lede">Call someone, or let them call Sathi.</p>
+      <h1>Saathi voice agent</h1>
+      <p class="lede">Call someone, or let them call Saathi voice agent.</p>
       <p id="serverStatus" class="lede" style="margin-top:0.55rem;font-size:0.85rem">Checking server…</p>
     </div>
 
     <div class="tabs" role="tablist">
       <button type="button" class="active" id="tabOut" data-panel="out">Call someone</button>
-      <button type="button" id="tabIn" data-panel="in">Call Sathi</button>
+      <button type="button" id="tabIn" data-panel="in">Call Saathi</button>
     </div>
 
     <form id="outPanel" class="panel active" autocomplete="on">
@@ -179,9 +179,9 @@
 
     <div id="inPanel" class="panel">
       <div class="helpline-card">
-        <p class="lede">User dials this number on their phone. Sathi answers.</p>
+        <p class="lede">User dials this number on their phone. Saathi voice agent answers.</p>
         <p class="helpline-num" id="helplineNum">Loading…</p>
-        <a class="btn btn-call btn-full" id="helplineLink" href="#" style="display:inline-block;text-align:center;text-decoration:none">Call Sathi</a>
+        <a class="btn btn-call btn-full" id="helplineLink" href="#" style="display:inline-block;text-align:center;text-decoration:none">Call Saathi voice agent</a>
       </div>
       <p id="inStatus" class="status" aria-live="polite"></p>
     </div>
@@ -243,7 +243,7 @@
           el.textContent = num;
           link.href = "tel:" + num.replace(/[^\d+]/g, "");
           link.style.pointerEvents = "auto";
-          setIn("Tap Call Sathi — your phone dials the helpline.", "");
+          setIn("Tap Call Saathi voice agent — your phone dials the helpline.", "");
         } else {
           el.textContent = "Helpline not configured";
           link.removeAttribute("href");
