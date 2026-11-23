@@ -299,6 +299,56 @@ async def keepalive():
     except Exception: pass
 
 
+# ── Claude HTTP pool ──────────────────────────────────────────────
+# Same fix as Sarvam STT/TTS: a new ClientSession per turn paid TLS (~100–250ms)
+# before the first token. Keep one connector with keepalive.
+_claude_session: aiohttp.ClientSession | None = None
+_claude_loop = None
+
+
+def _claude_http() -> aiohttp.ClientSession:
+    global _claude_session, _claude_loop
+    loop = asyncio.get_running_loop()
+    if _claude_session is None or _claude_session.closed or _claude_loop is not loop:
+        _claude_session = aiohttp.ClientSession(
+            connector=aiohttp.TCPConnector(
+                limit=int(os.getenv("CLAUDE_MAX_INFLIGHT", "8") or "8") + 2,
+                ttl_dns_cache=300,
+                keepalive_timeout=90,
+            ),
+        )
+        _claude_loop = loop
+    return _claude_session
+
+
+async def close_claude_session() -> None:
+    global _claude_session, _claude_loop
+    if _claude_session is not None and not _claude_session.closed:
+        await _claude_session.close()
+    _claude_session = None
+    _claude_loop = None
+
+
+async def warm_llm_connection() -> None:
+    """Touch Anthropic once at boot so the first call turn skips DNS+TLS cold start."""
+    if LLM_PROVIDER != "claude" or not _claude_key_ok(CLAUDE_API_KEY):
+        return
+    try:
+        s = _claude_http()
+        # Lightweight authenticated probe — 401/405 still warms the socket.
+        async with s.get(
+            "https://api.anthropic.com/v1/models",
+            headers={
+                "x-api-key": CLAUDE_API_KEY,
+                "anthropic-version": "2023-06-01",
+            },
+            timeout=aiohttp.ClientTimeout(total=8),
+        ) as resp:
+            await resp.read()
+    except Exception:
+        pass
+
+
 # ── Claude ────────────────────────────────────────────────────────
 
 def _has_cache_marker(system) -> bool:
@@ -351,45 +401,45 @@ async def _claude_stream(system, messages: list,
         # Default 8 = one stream per live call on the 2–8 pilot. Set
         # CLAUDE_MAX_INFLIGHT=0 in .env to disable the gate.
         async with gated("claude", "CLAUDE_MAX_INFLIGHT", 8):
-            async with aiohttp.ClientSession() as s:
-                async with s.post("https://api.anthropic.com/v1/messages",
-                        headers=headers, json=payload,
-                        timeout=aiohttp.ClientTimeout(total=LLM_TIMEOUT)) as resp:
-                    if resp.status != 200:
-                        body = await resp.text()
-                        # Older API versions reject cache_control — retry plain once
-                        if resp.status == 400 and not isinstance(system, str):
-                            print(f"\n  {Fore.YELLOW}⚠️  Claude rejected cached system prompt; "
-                                  f"retrying without cache{Style.RESET_ALL}")
-                            async for t in _claude_stream(_system_to_text(system),
-                                                          messages, model=model,
-                                                          meter=meter):
-                                yield t
-                            return
-                        print(f"\n  {Fore.RED}❌ Claude {resp.status}: {body}{Style.RESET_ALL}")
+            s = _claude_http()
+            async with s.post("https://api.anthropic.com/v1/messages",
+                    headers=headers, json=payload,
+                    timeout=aiohttp.ClientTimeout(total=LLM_TIMEOUT)) as resp:
+                if resp.status != 200:
+                    body = await resp.text()
+                    # Older API versions reject cache_control — retry plain once
+                    if resp.status == 400 and not isinstance(system, str):
+                        print(f"\n  {Fore.YELLOW}⚠️  Claude rejected cached system prompt; "
+                              f"retrying without cache{Style.RESET_ALL}")
+                        async for t in _claude_stream(_system_to_text(system),
+                                                      messages, model=model,
+                                                      meter=meter):
+                            yield t
                         return
-                    async for raw in resp.content:
-                        line = raw.decode("utf-8",errors="ignore").strip()
-                        if not line or not line.startswith("data:"): continue
-                        ds = line[5:].strip()
-                        if ds == "[DONE]": break
-                        try: ev = json.loads(ds)
-                        except: continue
-                        t = ev.get("type","")
-                        if t == "content_block_delta":
-                            d = ev.get("delta",{})
-                            if d.get("type") == "text_delta":
-                                yield d.get("text","")
-                        elif t == "message_delta":
-                            meter.record(model,
-                                output_tokens=ev.get("usage",{}).get("output_tokens",0))
-                        elif t == "message_start":
-                            u = ev.get("message",{}).get("usage",{}) or {}
-                            meter.record(model,
-                                input_tokens=u.get("input_tokens",0),
-                                cache_creation_input_tokens=u.get("cache_creation_input_tokens",0) or 0,
-                                cache_read_input_tokens=u.get("cache_read_input_tokens",0) or 0)
-                            _warn_if_cache_dead(model, system, u)
+                    print(f"\n  {Fore.RED}❌ Claude {resp.status}: {body}{Style.RESET_ALL}")
+                    return
+                async for raw in resp.content:
+                    line = raw.decode("utf-8",errors="ignore").strip()
+                    if not line or not line.startswith("data:"): continue
+                    ds = line[5:].strip()
+                    if ds == "[DONE]": break
+                    try: ev = json.loads(ds)
+                    except: continue
+                    t = ev.get("type","")
+                    if t == "content_block_delta":
+                        d = ev.get("delta",{})
+                        if d.get("type") == "text_delta":
+                            yield d.get("text","")
+                    elif t == "message_delta":
+                        meter.record(model,
+                            output_tokens=ev.get("usage",{}).get("output_tokens",0))
+                    elif t == "message_start":
+                        u = ev.get("message",{}).get("usage",{}) or {}
+                        meter.record(model,
+                            input_tokens=u.get("input_tokens",0),
+                            cache_creation_input_tokens=u.get("cache_creation_input_tokens",0) or 0,
+                            cache_read_input_tokens=u.get("cache_read_input_tokens",0) or 0)
+                        _warn_if_cache_dead(model, system, u)
     except asyncio.TimeoutError:
         print(f"\n  {Fore.RED}❌ Claude timeout{Style.RESET_ALL}")
     except Exception as e:
@@ -404,13 +454,13 @@ async def _claude_complete(prompt: str) -> str:
     payload = {"model":CLAUDE_MODEL,"max_tokens":400,
                "messages":[{"role":"user","content":prompt}]}
     async with gated("claude", "CLAUDE_MAX_INFLIGHT", 8):
-        async with aiohttp.ClientSession() as s:
-            async with s.post("https://api.anthropic.com/v1/messages",
-                    headers=headers,json=payload,
-                    timeout=aiohttp.ClientTimeout(total=30)) as resp:
-                resp.raise_for_status()
-                data = await resp.json()
-                return data["content"][0]["text"]
+        s = _claude_http()
+        async with s.post("https://api.anthropic.com/v1/messages",
+                headers=headers,json=payload,
+                timeout=aiohttp.ClientTimeout(total=30)) as resp:
+            resp.raise_for_status()
+            data = await resp.json()
+            return data["content"][0]["text"]
 
 
 # ── Ollama ────────────────────────────────────────────────────────

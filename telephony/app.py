@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.console_utf8 import configure_console_utf8
+from core.llm_service import close_claude_session, warm_llm_connection
 from core.tts_service import close_http_session
 from telephony.adapters import exotel, frejun, plivo, twilio
 from telephony.log import setup_logging
@@ -35,6 +36,8 @@ async def lifespan(app: FastAPI):
 
     rec = recordings_info()
     print(f"  Recordings: {rec['dir']} ({rec['wav_files']} wav)")
+    # Warm Claude TLS so turn-1 first_token is not paying a cold handshake.
+    await warm_llm_connection()
 
     stop = asyncio.Event()
 
@@ -64,6 +67,9 @@ async def lifespan(app: FastAPI):
         # The Sarvam connection is pooled and kept alive across calls, so it
         # outlives any one session and has to be closed with the app.
         await close_http_session()
+        await close_claude_session()
+        from core.stt_service import close_stt_session
+        await close_stt_session()
         from core.fish_service import close_session as close_fish_session
         await close_fish_session()
 
