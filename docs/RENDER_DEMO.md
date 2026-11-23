@@ -155,6 +155,7 @@ Demo: `https://YOUR-NGROK/demo`
 | Dial rejected / login | `OPEN_DIALER` must be `true` on Render |
 | Wrong voice (Fish) | Set `TTS_PROVIDER_EN/HI/MR=sarvam` on Render |
 | Capacity full | Wait for a call to end (`MAX_CONCURRENT_CALLS`) |
+| She talks but does not hear you | Render Logs: look for `Twilio inbound audio OK`, `VAD: silence after`, `STT (Sarvam)`. If no inbound line → audio not arriving. If VAD never fires → set `SILENCE_THRESHOLD=200`. If STT errors → check `SARVAM_API_KEY` / STT providers = sarvam. Wait until she finishes before speaking. |
 
 ---
 

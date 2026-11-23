@@ -20,6 +20,8 @@ class TwilioPcmReceiver:
 
     def __init__(self):
         self._buf = bytearray()
+        self._inbound_frames = 0
+        self._logged_first = False
 
     def flush(self):
         self._buf.clear()
@@ -43,20 +45,40 @@ class TwilioPcmReceiver:
             event = obj.get("event", "")
             if event == "stop":
                 raise WebSocketDisconnect()
-            if event in ("connected", "start", "mark"):
+            if event == "start":
+                start = obj.get("start") or {}
+                log.info(
+                    f"Twilio media start | tracks={start.get('tracks')} | "
+                    f"fmt={start.get('mediaFormat')}"
+                )
+                continue
+            if event in ("connected", "mark"):
                 continue
             if event != "media":
                 continue
 
             media = obj.get("media") or {}
-            if media.get("track") == "outbound":
+            track = str(media.get("track") or "")
+            # Bidirectional Connect streams only send inbound; skip any outbound echo.
+            if track in ("outbound", "outbound_track"):
                 continue
             b64 = media.get("payload")
             if not b64:
                 continue
             try:
                 mulaw = base64.b64decode(b64)
-                self._buf.extend(audioop.ulaw2lin(mulaw, SAMPLE_WIDTH))
+                pcm = audioop.ulaw2lin(mulaw, SAMPLE_WIDTH)
+                self._buf.extend(pcm)
+                self._inbound_frames += 1
+                if not self._logged_first:
+                    self._logged_first = True
+                    # Rough energy — confirms callee audio is actually arriving.
+                    peak = max((abs(int.from_bytes(pcm[i:i+2], "little", signed=True))
+                                for i in range(0, min(len(pcm), 320), 2)), default=0)
+                    log.info(
+                        f"Twilio inbound audio OK | track={track or 'inbound'} | "
+                        f"mulaw={len(mulaw)}B | peak={peak}"
+                    )
             except Exception:
                 continue
 
