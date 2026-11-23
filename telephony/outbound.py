@@ -1,11 +1,11 @@
 """
-Place an outbound phone call on Exotel or Twilio.
+Place an outbound phone call on Exotel, Twilio, or Plivo.
 
 TELEPHONY_PROVIDER remains the default. OUTBOUND_PROVIDER can override it
-per deployment (twilio | exotel | frejun | auto). auto = TELEPHONY_PROVIDER.
+per deployment (twilio | exotel | frejun | plivo | auto). auto = TELEPHONY_PROVIDER.
 
 Both inbound routes stay mounted regardless — a process can answer Twilio
-and Exotel at once; only the dial direction needs an explicit choice.
+and Plivo at once; only the dial direction needs an explicit choice.
 """
 
 from __future__ import annotations
@@ -54,6 +54,11 @@ async def place_outbound_call(
     if chosen == "twilio":
         from telephony.adapters.twilio import make_twilio_outbound_call
         sid = make_twilio_outbound_call(to_number)
+        return (True, None, sid) if sid else (False, "provider_error", None)
+
+    if chosen == "plivo":
+        from telephony.adapters.plivo import make_plivo_outbound_call
+        sid = make_plivo_outbound_call(to_number)
         return (True, None, sid) if sid else (False, "provider_error", None)
 
     if chosen == "exotel":

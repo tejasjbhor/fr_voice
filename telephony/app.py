@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.console_utf8 import configure_console_utf8
 from core.tts_service import close_http_session
-from telephony.adapters import exotel, frejun, twilio
+from telephony.adapters import exotel, frejun, plivo, twilio
 from telephony.log import setup_logging
 from telephony.routes import app_api, common, local_call
 from telephony.startup import startup_banner
@@ -84,6 +84,7 @@ def create_app() -> FastAPI:
     exotel.register(app)
     frejun.register(app)
     twilio.register(app)
+    plivo.register(app)
     # After API/websocket routes so GET / serves the Capacitor UI on Render.
     common.mount_mobile_ui(app)
     return app

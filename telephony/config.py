@@ -26,6 +26,11 @@ TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
 TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
 
+# Plivo (India Audio Streaming)
+PLIVO_AUTH_ID = (os.getenv("PLIVO_AUTH_ID") or "").strip()
+PLIVO_AUTH_TOKEN = (os.getenv("PLIVO_AUTH_TOKEN") or "").strip()
+PLIVO_PHONE_NUMBER = (os.getenv("PLIVO_PHONE_NUMBER") or "").strip()
+
 # Server
 # Strip spaces — a leading space in .env breaks Twilio Stream URLs silently.
 SERVER_PUBLIC_URL = (os.getenv("SERVER_PUBLIC_URL") or "").strip()

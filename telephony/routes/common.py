@@ -14,6 +14,7 @@ from telephony.call_slots import active_calls, capacity_snapshot, max_concurrent
 from telephony.config import (
     APP_ENV,
     EXOTEL_VIRTUAL_NUMBER,
+    PLIVO_PHONE_NUMBER,
     TELEPHONY_PROVIDER,
     TWILIO_PHONE_NUMBER,
 )
@@ -76,18 +77,24 @@ async def demo_page():
 
 async def call_info():
     """Numbers and mode for the dialer UI (inbound helpline + outbound)."""
-    helpline = (TWILIO_PHONE_NUMBER or EXOTEL_VIRTUAL_NUMBER or "").strip()
+    outbound = resolve_outbound_provider()
+    if outbound == "plivo":
+        helpline = (PLIVO_PHONE_NUMBER or TWILIO_PHONE_NUMBER or EXOTEL_VIRTUAL_NUMBER or "").strip()
+    elif outbound == "exotel":
+        helpline = (EXOTEL_VIRTUAL_NUMBER or TWILIO_PHONE_NUMBER or PLIVO_PHONE_NUMBER or "").strip()
+    else:
+        helpline = (TWILIO_PHONE_NUMBER or PLIVO_PHONE_NUMBER or EXOTEL_VIRTUAL_NUMBER or "").strip()
     return {
         "helpline": helpline,
         "helpline_display": helpline,
-        "outbound_provider": resolve_outbound_provider(),
+        "outbound_provider": outbound,
         "telephony_provider": TELEPHONY_PROVIDER,
         "open_dialer": open_dialer(),
     }
 
 
 async def hangup_call(request: Request):
-    """End an outbound Twilio call started from the dialer (needs call_sid)."""
+    """End an outbound call started from the dialer (needs call_sid / Plivo UUID)."""
     try:
         body = await request.json()
     except Exception:
@@ -99,9 +106,18 @@ async def hangup_call(request: Request):
         acc, err = require_account(request)
         if err:
             return err
-    from telephony.adapters.twilio import hangup_twilio_call
 
-    ok = hangup_twilio_call(call_sid)
+    outbound = resolve_outbound_provider()
+    ok = False
+    if outbound == "plivo" or (not call_sid.startswith("CA") and outbound != "twilio"):
+        from telephony.adapters.plivo import hangup_plivo_call
+        ok = hangup_plivo_call(call_sid)
+    if not ok:
+        from telephony.adapters.twilio import hangup_twilio_call
+        ok = hangup_twilio_call(call_sid)
+    if not ok and outbound != "plivo":
+        from telephony.adapters.plivo import hangup_plivo_call
+        ok = hangup_plivo_call(call_sid)
     if not ok:
         return JSONResponse({"error": "hangup_failed"}, status_code=500)
     return JSONResponse({"status": "ended", "call_sid": call_sid})

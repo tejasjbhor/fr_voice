@@ -15,6 +15,9 @@ from telephony.config import (
     EXOTEL_SID,
     FREJUN_API_KEY,
     FREJUN_FROM_NUMBER,
+    PLIVO_AUTH_ID,
+    PLIVO_AUTH_TOKEN,
+    PLIVO_PHONE_NUMBER,
     SERVER_PORT,
     SERVER_PUBLIC_URL,
     TELEPHONY_PROVIDER,
@@ -47,6 +50,9 @@ async def _auto_dial_user_phone():
         if TELEPHONY_PROVIDER == "twilio":
             from telephony.adapters.twilio import make_twilio_outbound_call
             ok = bool(await asyncio.to_thread(make_twilio_outbound_call, phone))
+        elif TELEPHONY_PROVIDER == "plivo":
+            from telephony.adapters.plivo import make_plivo_outbound_call
+            ok = bool(await asyncio.to_thread(make_plivo_outbound_call, phone))
         elif TELEPHONY_PROVIDER == "frejun":
             from telephony.adapters.frejun import make_frejun_outbound_call
             ok = await make_frejun_outbound_call(phone)
@@ -102,6 +108,10 @@ async def startup_banner():
         print(f"  Twilio voice: {public}/twilio/voice" if public else "  Twilio voice: (set SERVER_PUBLIC_URL)")
         print(f"  Twilio WS:    .../twilio/media-stream")
         print(f"  From number:  {TWILIO_PHONE_NUMBER or '(set TWILIO_PHONE_NUMBER)'}")
+    elif TELEPHONY_PROVIDER == "plivo":
+        print(f"  Plivo voice: {public}/plivo/voice" if public else "  Plivo voice: (set SERVER_PUBLIC_URL)")
+        print(f"  Plivo WS:    .../plivo/media-stream")
+        print(f"  From number:  {PLIVO_PHONE_NUMBER or '(set PLIVO_PHONE_NUMBER)'}")
     elif TELEPHONY_PROVIDER == "local":
         print(f"  LOCAL dummy calls — no Twilio/Exotel")
         print(f"  After Call Saathi now → open http://127.0.0.1:{SERVER_PORT}/local-call/<id>")
@@ -177,6 +187,11 @@ async def startup_banner():
     ):
         print(f"{Fore.YELLOW}⚠️  Twilio incomplete — set TWILIO_ACCOUNT_SID, "
               f"TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER{Style.RESET_ALL}\n")
+    if TELEPHONY_PROVIDER == "plivo" and (
+        not PLIVO_AUTH_ID or not PLIVO_AUTH_TOKEN or not PLIVO_PHONE_NUMBER
+    ):
+        print(f"{Fore.YELLOW}⚠️  Plivo incomplete — set PLIVO_AUTH_ID, "
+              f"PLIVO_AUTH_TOKEN, PLIVO_PHONE_NUMBER{Style.RESET_ALL}\n")
 
     if AUTO_DIAL_ON_START:
         asyncio.create_task(_auto_dial_user_phone())

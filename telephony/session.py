@@ -60,9 +60,11 @@ from telephony.config import (
 from telephony.log import setup_logging
 from telephony.players.exotel import ExotelAudioPlayer
 from telephony.players.frejun import FreJunAudioPlayer
+from telephony.players.plivo import PlivoAudioPlayer
 from telephony.players.twilio import TwilioAudioPlayer
 from telephony.receivers.exotel import ExotelPcmReceiver
 from telephony.receivers.frejun import receive_pcm_from_frejun
+from telephony.receivers.plivo import PlivoPcmReceiver
 from telephony.receivers.twilio import TwilioPcmReceiver
 
 log = setup_logging()
@@ -188,6 +190,7 @@ async def handle_call_session(
     )
 
     twilio_rx = None
+    plivo_rx = None
     exotel_rx = None
     if provider == "frejun":
         player = FreJunAudioPlayer(websocket)
@@ -196,6 +199,10 @@ async def handle_call_session(
         player = TwilioAudioPlayer(websocket, stream_sid)
         twilio_rx = TwilioPcmReceiver()
         recv_pcm = twilio_rx
+    elif provider == "plivo":
+        player = PlivoAudioPlayer(websocket, stream_sid)
+        plivo_rx = PlivoPcmReceiver()
+        recv_pcm = plivo_rx
     else:
         player = ExotelAudioPlayer(websocket, stream_sid)
         exotel_rx = ExotelPcmReceiver()
@@ -203,9 +210,10 @@ async def handle_call_session(
 
     await player.start()
 
+    barge_rx = twilio_rx or plivo_rx
     monitor = (
-        BargeInMonitor(websocket, twilio_rx, player)
-        if twilio_rx is not None and PHONE_BARGE_IN_ENABLED else None
+        BargeInMonitor(websocket, barge_rx, player)
+        if barge_rx is not None and PHONE_BARGE_IN_ENABLED else None
     )
 
     async def tts_for_thinking(text: str):
@@ -224,6 +232,8 @@ async def handle_call_session(
             return
         if twilio_rx is not None:
             await twilio_rx.discard_pending(websocket)
+        if plivo_rx is not None:
+            await plivo_rx.discard_pending(websocket)
         if exotel_rx is not None:
             await exotel_rx.discard_pending(websocket)
 
@@ -487,6 +497,8 @@ async def handle_call_session(
 
                         if twilio_rx is not None:
                             await twilio_rx.discard_pending(websocket)
+                        if plivo_rx is not None:
+                            await plivo_rx.discard_pending(websocket)
                         if exotel_rx is not None:
                             await exotel_rx.discard_pending(websocket)
 
