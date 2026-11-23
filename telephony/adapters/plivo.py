@@ -3,13 +3,14 @@
 import asyncio
 import json
 import uuid
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, quote
 from xml.sax.saxutils import escape as xml_escape
 
 import requests
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import Response
 
+from core.database import normalize_phone
 from telephony.audio_utils import is_placeholder
 from telephony.config import (
     PLIVO_AUTH_ID,
@@ -79,8 +80,10 @@ def _caller_from_params(data: dict) -> str:
     to_number = data.get("To") or data.get("to") or ""
     # Outbound API: we dialled `To`; that person is the elder Saathi talks to.
     if direction in ("outbound", "outgoing"):
-        return to_number or from_number
-    return from_number or to_number
+        raw = to_number or from_number
+    else:
+        raw = from_number or to_number
+    return normalize_phone(raw)
 
 
 async def plivo_voice(request: Request):
@@ -109,8 +112,10 @@ async def plivo_voice(request: Request):
 
     public = SERVER_PUBLIC_URL.rstrip("/")
     ws = public.replace("https://", "wss://").replace("http://", "ws://")
+    # Query-string is reliable; Plivo extraHeaders often never appear on start.
     stream_url = f"{ws}/plivo/media-stream"
-    # Pass caller into the WebSocket start event via extraHeaders.
+    if caller:
+        stream_url = f"{stream_url}?from={quote(caller, safe='')}"
     extra = f"from={xml_escape(caller)}" if caller else ""
 
     attrs = [
@@ -131,7 +136,7 @@ async def plivo_voice(request: Request):
     )
     log.info(
         f"Plivo voice XML | direction={direction} | from={from_number} | "
-        f"to={to_number} | stream={stream_url}"
+        f"to={to_number} | caller={caller} | stream={stream_url}"
     )
     return Response(content=xml, media_type="application/xml")
 
@@ -182,11 +187,16 @@ def _parse_extra_headers(raw) -> dict:
 async def plivo_media_stream(ws: WebSocket):
     await ws.accept()
     session_id = str(uuid.uuid4())
-    log.info(f"Plivo WS connected | session={session_id[:16]}")
+    # Prefer ?from= on the Stream URL (set in plivo_voice) — survives better
+    # than Plivo extraHeaders, which were arriving empty in production.
+    caller = normalize_phone(ws.query_params.get("from") or "")
+    log.info(
+        f"Plivo WS connected | session={session_id[:16]} | "
+        f"qs_from={caller or '-'}"
+    )
 
     stream_sid = ""
     call_uuid = ""
-    caller = ""
 
     try:
         while True:
@@ -211,22 +221,25 @@ async def plivo_media_stream(ws: WebSocket):
                     or start.get("call_uuid")
                     or ""
                 )
-                headers = _parse_extra_headers(
-                    start.get("extraHeaders")
-                    or start.get("extra_headers")
-                    or obj.get("extra_headers")
-                    or obj.get("extraHeaders")
-                )
-                caller = str(
-                    headers.get("from")
-                    or headers.get("From")
-                    or start.get("from")
-                    or start.get("From")
-                    or ""
-                )
+                if not caller:
+                    headers = _parse_extra_headers(
+                        start.get("extraHeaders")
+                        or start.get("extra_headers")
+                        or obj.get("extra_headers")
+                        or obj.get("extraHeaders")
+                    )
+                    caller = normalize_phone(
+                        headers.get("from")
+                        or headers.get("From")
+                        or start.get("from")
+                        or start.get("From")
+                        or start.get("to")
+                        or start.get("To")
+                        or ""
+                    )
                 log.info(
                     f"Plivo stream started | sid={stream_sid[:16] if stream_sid else '-'} | "
-                    f"from={caller}"
+                    f"from={caller or '-'}"
                 )
                 break
             if event in ("stop", "stopped"):
