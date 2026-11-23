@@ -28,13 +28,14 @@ def resolve_outbound_provider(override: Optional[str] = None) -> str:
 
 async def place_outbound_call(
     to_number: str, provider: Optional[str] = None
-) -> tuple[bool, str | None]:
+) -> tuple[bool, str | None, str | None]:
     """
     Dial `to_number` on the chosen carrier.
 
-    Returns `(ok, error_code)`.
+    Returns `(ok, error_code, call_sid)`.
     `error_code` is None on success, else one of:
       capacity_full | credentials | provider_error | unsupported | unknown_provider
+    `call_sid` is set for Twilio when dial succeeds (for hangup from the UI).
     """
     from telephony.call_slots import active_calls, max_concurrent_calls
 
@@ -46,14 +47,14 @@ async def place_outbound_call(
                 f"Outbound skipped — capacity full "
                 f"(active={active}, max={limit}) → {to_number}"
             )
-            return False, "capacity_full"
+            return False, "capacity_full", None
 
     chosen = resolve_outbound_provider(provider)
 
     if chosen == "twilio":
         from telephony.adapters.twilio import make_twilio_outbound_call
-        ok = bool(make_twilio_outbound_call(to_number))
-        return (True, None) if ok else (False, "provider_error")
+        sid = make_twilio_outbound_call(to_number)
+        return (True, None, sid) if sid else (False, "provider_error", None)
 
     if chosen == "exotel":
         from telephony.adapters.exotel import (
@@ -61,16 +62,16 @@ async def place_outbound_call(
             make_exotel_outbound_call,
         )
         ok = bool(make_exotel_outbound_call(to_number, exotel_websocket_url()))
-        return (True, None) if ok else (False, "provider_error")
+        return (True, None, None) if ok else (False, "provider_error", None)
 
     if chosen == "frejun":
         from telephony.adapters.frejun import make_frejun_outbound_call
         ok = bool(await make_frejun_outbound_call(to_number))
-        return (True, None) if ok else (False, "provider_error")
+        return (True, None, None) if ok else (False, "provider_error", None)
 
     if chosen == "local":
         log.error("place_outbound_call does not start local mic sessions")
-        return False, "unsupported"
+        return False, "unsupported", None
 
     log.error(f"Unknown outbound provider: {chosen}")
-    return False, "unknown_provider"
+    return False, "unknown_provider", None

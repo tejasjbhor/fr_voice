@@ -228,16 +228,17 @@ async def twilio_media_stream(ws: WebSocket):
         log.info(f"Twilio session {session_id[:16]} closed")
 
 
-def make_twilio_outbound_call(to_number: str) -> bool:
+def make_twilio_outbound_call(to_number: str) -> str | None:
+    """Place outbound call. Returns Twilio Call SID on success, else None."""
     if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER]) or any(
         is_placeholder(v)
         for v in (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER)
     ):
         log.error("Twilio credentials missing in .env")
-        return False
+        return None
     if not SERVER_PUBLIC_URL or is_placeholder(SERVER_PUBLIC_URL):
         log.error("SERVER_PUBLIC_URL missing — Twilio needs a public voice URL")
-        return False
+        return None
 
     public = SERVER_PUBLIC_URL.rstrip("/")
     voice_url = f"{public}/twilio/voice"
@@ -263,11 +264,23 @@ def make_twilio_outbound_call(to_number: str) -> bool:
         if resp.status_code in (200, 201):
             call_sid = resp.json().get("sid", "")
             log.info(f"Twilio outbound | SID={call_sid} | to={to_number}")
-            return True
+            return call_sid or None
         log.error(f"Twilio API error: {resp.status_code} — {resp.text}")
-        return False
+        return None
     except Exception as e:
         log.error(f"Twilio outbound failed: {e}")
+        return None
+
+
+def hangup_twilio_call(call_sid: str) -> bool:
+    """End an in-progress Twilio call from the dialer UI."""
+    if not call_sid or not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN:
+        return False
+    try:
+        _hangup(call_sid)
+        return True
+    except Exception as e:
+        log.warning(f"Twilio hangup via API failed: {e}")
         return False
 
 

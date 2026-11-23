@@ -46,7 +46,7 @@ async def _auto_dial_user_phone():
     try:
         if TELEPHONY_PROVIDER == "twilio":
             from telephony.adapters.twilio import make_twilio_outbound_call
-            ok = await asyncio.to_thread(make_twilio_outbound_call, phone)
+            ok = bool(await asyncio.to_thread(make_twilio_outbound_call, phone))
         elif TELEPHONY_PROVIDER == "frejun":
             from telephony.adapters.frejun import make_frejun_outbound_call
             ok = await make_frejun_outbound_call(phone)

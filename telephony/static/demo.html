@@ -3,18 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#1a2e28" />
-  <title>Maîtria — Demo Call</title>
+  <meta name="theme-color" content="#0f1a17" />
+  <title>Sathi</title>
   <style>
     :root {
-      --bg0: #14221e;
-      --bg1: #1e332c;
-      --ink: #f3efe6;
-      --muted: #b7c4bc;
-      --accent: #d4a35c;
-      --accent-ink: #1a2e28;
-      --line: rgba(243, 239, 230, 0.14);
-      --ok: #7dba8e;
+      --bg0: #0c1412;
+      --bg1: #152420;
+      --ink: #f2f0ea;
+      --muted: #9aaba3;
+      --accent: #3d9b7a;
+      --accent-ink: #04110c;
+      --danger: #c45c4a;
+      --line: rgba(242, 240, 234, 0.12);
+      --ok: #6fbf8a;
       --bad: #e08a7a;
       --card: rgba(255, 255, 255, 0.04);
     }
@@ -24,8 +25,7 @@
       font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
       color: var(--ink);
       background:
-        radial-gradient(1200px 600px at 10% -10%, #2f4a40 0%, transparent 55%),
-        radial-gradient(900px 500px at 100% 0%, #3a2f1c 0%, transparent 50%),
+        radial-gradient(900px 500px at 0% 0%, #1a3d32 0%, transparent 55%),
         linear-gradient(165deg, var(--bg0), var(--bg1));
       min-height: 100%;
       display: flex;
@@ -34,105 +34,128 @@
     main {
       width: min(440px, 100%);
       margin: 0 auto;
-      padding: 2rem 1.25rem 2.5rem;
+      padding: 1.75rem 1.15rem 2rem;
       flex: 1;
       display: flex;
       flex-direction: column;
       justify-content: center;
-      gap: 1.25rem;
-    }
-    .brand {
-      font-size: 0.8rem;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--accent);
-      margin: 0 0 0.35rem;
+      gap: 1rem;
     }
     h1 {
-      font-size: clamp(1.8rem, 6vw, 2.2rem);
+      font-size: clamp(1.7rem, 5.5vw, 2rem);
       font-weight: 650;
-      line-height: 1.15;
-      margin: 0 0 0.4rem;
+      margin: 0 0 0.35rem;
+      letter-spacing: -0.02em;
     }
     .lede {
       margin: 0;
       color: var(--muted);
-      font-size: 0.98rem;
+      font-size: 0.95rem;
       line-height: 1.45;
     }
-    form {
-      margin-top: 0.5rem;
-      padding: 1.15rem;
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.4rem;
+      padding: 0.3rem;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(0,0,0,0.2);
+    }
+    .tabs button {
+      border: 0;
+      border-radius: 11px;
+      padding: 0.7rem 0.5rem;
+      font-size: 0.92rem;
+      font-weight: 600;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .tabs button.active {
+      background: var(--accent);
+      color: var(--accent-ink);
+    }
+    .panel {
+      display: none;
+      padding: 1.1rem;
       border: 1px solid var(--line);
       border-radius: 18px;
       background: var(--card);
-      backdrop-filter: blur(8px);
-      display: grid;
-      gap: 0.9rem;
+      gap: 0.85rem;
     }
+    .panel.active { display: grid; }
     label {
       display: grid;
-      gap: 0.35rem;
-      font-size: 0.85rem;
+      gap: 0.3rem;
+      font-size: 0.82rem;
       color: var(--muted);
     }
     input, select {
       width: 100%;
       border: 1px solid var(--line);
-      background: rgba(0,0,0,0.25);
+      background: rgba(0,0,0,0.28);
       color: var(--ink);
       border-radius: 12px;
       padding: 0.85rem 0.95rem;
-      font-size: 1.05rem;
+      font-size: 1.02rem;
       outline: none;
     }
-    input:focus, select:focus {
-      border-color: var(--accent);
-    }
-    button {
-      margin-top: 0.25rem;
+    input:focus, select:focus { border-color: var(--accent); }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; }
+    .btn {
       border: 0;
       border-radius: 999px;
-      padding: 0.95rem 1.1rem;
-      font-size: 1.05rem;
+      padding: 0.9rem 1rem;
+      font-size: 1rem;
       font-weight: 650;
-      background: var(--accent);
-      color: var(--accent-ink);
       cursor: pointer;
     }
-    button:disabled {
-      opacity: 0.55;
-      cursor: wait;
-    }
-    .status {
-      min-height: 1.4rem;
-      font-size: 0.92rem;
-      color: var(--muted);
-    }
+    .btn-call { background: var(--accent); color: var(--accent-ink); }
+    .btn-end { background: var(--danger); color: #fff; }
+    .btn:disabled { opacity: 0.5; cursor: wait; }
+    .btn-full { grid-column: 1 / -1; }
+    .status { min-height: 1.35rem; font-size: 0.9rem; color: var(--muted); }
     .status.ok { color: var(--ok); }
     .status.bad { color: var(--bad); }
+    .helpline-card {
+      text-align: center;
+      padding: 0.5rem 0 0.2rem;
+    }
+    .helpline-num {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      margin: 0.6rem 0 1rem;
+      word-break: break-all;
+    }
+    .helpline-num a { color: var(--ink); text-decoration: none; }
     footer {
       text-align: center;
       color: var(--muted);
-      font-size: 0.75rem;
-      padding: 0 1rem 1.25rem;
-      opacity: 0.75;
+      font-size: 0.72rem;
+      padding: 0 1rem 1.1rem;
+      opacity: 0.7;
     }
   </style>
 </head>
 <body>
   <main>
     <div>
-      <p class="brand">Maîtria</p>
-      <h1>Start a demo call</h1>
-      <p class="lede">Enter the person’s name, phone, and language. Their phone will ring.</p>
-      <p id="serverStatus" class="lede" style="margin-top:0.6rem;font-size:0.85rem">Checking server…</p>
+      <h1>Sathi</h1>
+      <p class="lede">Call someone, or let them call Sathi.</p>
+      <p id="serverStatus" class="lede" style="margin-top:0.55rem;font-size:0.85rem">Checking server…</p>
     </div>
 
-    <form id="demoForm">
+    <div class="tabs" role="tablist">
+      <button type="button" class="active" id="tabOut" data-panel="out">Call someone</button>
+      <button type="button" id="tabIn" data-panel="in">Call Sathi</button>
+    </div>
+
+    <form id="outPanel" class="panel active" autocomplete="on">
       <label>
         Name
-        <input id="name" name="name" autocomplete="name" placeholder="Anagha" required />
+        <input id="name" name="name" autocomplete="name" placeholder="Rohit" required />
       </label>
       <label>
         Phone (with country code)
@@ -145,25 +168,56 @@
           <option value="hi-IN" selected>Hindi</option>
           <option value="mr-IN">Marathi</option>
           <option value="en-IN">English</option>
-          <option value="es-ES">Spanish</option>
         </select>
       </label>
-      <button id="submitBtn" type="submit">Call now</button>
-      <p id="status" class="status" aria-live="polite"></p>
+      <div class="actions">
+        <button class="btn btn-call" id="callBtn" type="submit">Call</button>
+        <button class="btn btn-end" id="endBtn" type="button" disabled>End call</button>
+      </div>
+      <p id="outStatus" class="status" aria-live="polite"></p>
     </form>
+
+    <div id="inPanel" class="panel">
+      <div class="helpline-card">
+        <p class="lede">User dials this number on their phone. Sathi answers.</p>
+        <p class="helpline-num" id="helplineNum">Loading…</p>
+        <a class="btn btn-call btn-full" id="helplineLink" href="#" style="display:inline-block;text-align:center;text-decoration:none">Call Sathi</a>
+      </div>
+      <p id="inStatus" class="status" aria-live="polite"></p>
+    </div>
   </main>
-  <footer>Laptop or Render · same app · wake Free Render once, then dial</footer>
+  <footer>Wake Free Render once, then place calls</footer>
 
   <script>
-    const form = document.getElementById("demoForm");
-    const statusEl = document.getElementById("status");
+    const outPanel = document.getElementById("outPanel");
+    const inPanel = document.getElementById("inPanel");
+    const tabOut = document.getElementById("tabOut");
+    const tabIn = document.getElementById("tabIn");
+    const outStatus = document.getElementById("outStatus");
+    const inStatus = document.getElementById("inStatus");
     const serverEl = document.getElementById("serverStatus");
-    const btn = document.getElementById("submitBtn");
+    const callBtn = document.getElementById("callBtn");
+    const endBtn = document.getElementById("endBtn");
+    let activeCallSid = null;
 
-    function setStatus(msg, kind) {
-      statusEl.textContent = msg;
-      statusEl.className = "status" + (kind ? " " + kind : "");
+    function setOut(msg, kind) {
+      outStatus.textContent = msg;
+      outStatus.className = "status" + (kind ? " " + kind : "");
     }
+    function setIn(msg, kind) {
+      inStatus.textContent = msg;
+      inStatus.className = "status" + (kind ? " " + kind : "");
+    }
+
+    function showPanel(which) {
+      const out = which === "out";
+      outPanel.classList.toggle("active", out);
+      inPanel.classList.toggle("active", !out);
+      tabOut.classList.toggle("active", out);
+      tabIn.classList.toggle("active", !out);
+    }
+    tabOut.addEventListener("click", () => showPanel("out"));
+    tabIn.addEventListener("click", () => showPanel("in"));
 
     async function pingHealth(timeoutMs) {
       const ctrl = new AbortController();
@@ -178,61 +232,111 @@
       }
     }
 
-    (async function wakeCheck() {
-      serverEl.textContent = "Waking server (Free Render can take ~1 min)…";
+    async function loadInfo() {
+      try {
+        const res = await fetch("/call/info");
+        const data = await res.json();
+        const num = data.helpline || "";
+        const el = document.getElementById("helplineNum");
+        const link = document.getElementById("helplineLink");
+        if (num) {
+          el.textContent = num;
+          link.href = "tel:" + num.replace(/[^\d+]/g, "");
+          link.style.pointerEvents = "auto";
+          setIn("Tap Call Sathi — your phone dials the helpline.", "");
+        } else {
+          el.textContent = "Helpline not configured";
+          link.removeAttribute("href");
+          setIn("Set TWILIO_PHONE_NUMBER (or Exotel virtual number) on the server.", "bad");
+        }
+      } catch (e) {
+        setIn("Could not load helpline number.", "bad");
+      }
+    }
+
+    (async function boot() {
+      serverEl.textContent = "Waking server…";
       const ok = await pingHealth(90000);
       if (ok) {
-        serverEl.textContent = "Server awake — you can place calls.";
+        serverEl.textContent = "Server ready.";
         serverEl.style.color = "var(--ok)";
       } else {
-        serverEl.textContent = "Server not responding yet — wait and refresh.";
+        serverEl.textContent = "Server not ready — wait and refresh.";
         serverEl.style.color = "var(--bad)";
       }
+      await loadInfo();
     })();
 
-    form.addEventListener("submit", async (e) => {
+    outPanel.addEventListener("submit", async (e) => {
       e.preventDefault();
       const name = document.getElementById("name").value.trim();
       const phone = document.getElementById("phone").value.trim();
       const language = document.getElementById("language").value;
-
       if (!name || !phone) {
-        setStatus("Name and phone are required.", "bad");
+        setOut("Name and phone are required.", "bad");
         return;
       }
-
-      btn.disabled = true;
-      setStatus("Checking server is awake…", "");
-      const awake = await pingHealth(90000);
-      if (!awake) {
-        setStatus("Server still waking — wait ~1 min, refresh, then Call again.", "bad");
-        btn.disabled = false;
+      callBtn.disabled = true;
+      setOut("Checking server…", "");
+      if (!(await pingHealth(90000))) {
+        setOut("Server still waking — refresh and try again.", "bad");
+        callBtn.disabled = false;
         return;
       }
-
-      setStatus("Dialing… keep this page open a moment.", "");
-
+      setOut("Calling…", "");
       try {
         const res = await fetch("/call/outbound", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name,
-            to_number: phone,
-            language,
-          }),
+          body: JSON.stringify({ name, to_number: phone, language }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          setStatus(data.error || data.message || ("Failed (" + res.status + ")"), "bad");
+          setOut(data.error || data.message || ("Failed (" + res.status + ")"), "bad");
+          endBtn.disabled = true;
+          activeCallSid = null;
         } else {
-          const who = data.user && data.user.name ? data.user.name : name;
-          setStatus("Ringing " + who + " at " + data.to + "…", "ok");
+          activeCallSid = data.call_sid || null;
+          endBtn.disabled = !activeCallSid;
+          const who = (data.user && data.user.name) || name;
+          setOut(
+            activeCallSid
+              ? ("Ringing " + who + " — use End call to hang up.")
+              : ("Ringing " + who + "…"),
+            "ok"
+          );
         }
       } catch (err) {
-        setStatus("Network error — wake the server (open /demo) and retry.", "bad");
+        setOut("Network error — refresh and retry.", "bad");
       } finally {
-        btn.disabled = false;
+        callBtn.disabled = false;
+      }
+    });
+
+    endBtn.addEventListener("click", async () => {
+      if (!activeCallSid) {
+        setOut("No active call to end.", "bad");
+        return;
+      }
+      endBtn.disabled = true;
+      setOut("Ending call…", "");
+      try {
+        const res = await fetch("/call/hangup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ call_sid: activeCallSid }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setOut(data.error || "Could not end call", "bad");
+          endBtn.disabled = false;
+          return;
+        }
+        activeCallSid = null;
+        setOut("Call ended.", "ok");
+      } catch (e) {
+        setOut("Network error ending call.", "bad");
+        endBtn.disabled = false;
       }
     });
   </script>

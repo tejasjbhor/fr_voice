@@ -11,7 +11,12 @@ from core.database import normalize_phone, recordings_info, upsert_demo_user
 from core.db_engine import get_engine, resolve_database_url
 from telephony.auth import can_access_phone, forbid, open_dialer, require_account
 from telephony.call_slots import active_calls, capacity_snapshot, max_concurrent_calls
-from telephony.config import APP_ENV, TELEPHONY_PROVIDER
+from telephony.config import (
+    APP_ENV,
+    EXOTEL_VIRTUAL_NUMBER,
+    TELEPHONY_PROVIDER,
+    TWILIO_PHONE_NUMBER,
+)
 from telephony.local_calls import active_local_count, start_local_call
 from telephony.log import setup_logging
 from telephony.outbound import place_outbound_call, resolve_outbound_provider
@@ -63,10 +68,43 @@ async def health():
 
 
 async def demo_page():
-    """Mobile-friendly dialer: name + phone + language → outbound call."""
+    """Mobile-friendly dialer: outbound + inbound helpline."""
     if not _DEMO_HTML.exists():
-        return HTMLResponse("<h1>Demo page missing</h1>", status_code=500)
+        return HTMLResponse("<h1>Dialer page missing</h1>", status_code=500)
     return HTMLResponse(_DEMO_HTML.read_text(encoding="utf-8"))
+
+
+async def call_info():
+    """Numbers and mode for the dialer UI (inbound helpline + outbound)."""
+    helpline = (TWILIO_PHONE_NUMBER or EXOTEL_VIRTUAL_NUMBER or "").strip()
+    return {
+        "helpline": helpline,
+        "helpline_display": helpline,
+        "outbound_provider": resolve_outbound_provider(),
+        "telephony_provider": TELEPHONY_PROVIDER,
+        "open_dialer": open_dialer(),
+    }
+
+
+async def hangup_call(request: Request):
+    """End an outbound Twilio call started from the dialer (needs call_sid)."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid JSON"}, status_code=400)
+    call_sid = (body.get("call_sid") or "").strip()
+    if not call_sid:
+        return JSONResponse({"error": "call_sid required"}, status_code=400)
+    if not open_dialer():
+        acc, err = require_account(request)
+        if err:
+            return err
+    from telephony.adapters.twilio import hangup_twilio_call
+
+    ok = hangup_twilio_call(call_sid)
+    if not ok:
+        return JSONResponse({"error": "hangup_failed"}, status_code=500)
+    return JSONResponse({"status": "ended", "call_sid": call_sid})
 
 
 async def trigger_outbound(request: Request):
@@ -138,14 +176,15 @@ async def trigger_outbound(request: Request):
             "user": started.get("user"),
         })
 
-    ok, err = await place_outbound_call(to_number, provider=provider)
+    ok, err, call_sid = await place_outbound_call(to_number, provider=provider)
 
     if ok:
-        log.info(f"Outbound ({provider}) → {to_number}")
+        log.info(f"Outbound ({provider}) → {to_number} | sid={call_sid or '-'}")
         return JSONResponse({
             "status": "dialing",
             "to": to_number,
             "provider": provider,
+            "call_sid": call_sid,
             "user": {
                 "id": user.get("id"),
                 "name": user.get("name"),
@@ -173,7 +212,9 @@ async def trigger_outbound(request: Request):
 def register(app: FastAPI) -> None:
     app.get("/health")(health)
     app.get("/demo")(demo_page)
+    app.get("/call/info")(call_info)
     app.post("/call/outbound")(trigger_outbound)
+    app.post("/call/hangup")(hangup_call)
 
 
 def mount_mobile_ui(app: FastAPI) -> None:

@@ -491,7 +491,7 @@ async def _dial_number(to_number: str) -> bool:
             return False
         start_local_call(user, language=user.get("language"))
         return True
-    ok, _err = await place_outbound_call(to_number)
+    ok, _err, _sid = await place_outbound_call(to_number)
     return bool(ok)
 
 
